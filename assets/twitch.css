@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500');
+
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    background-color: #212121;
+    color: white;
+    text-align: center;
+}
+
+header {
+    background: linear-gradient(345deg, #6441A4, #9966cc);
+    height: 500px;
+    margin-bottom: 80px;
+}
+
+header h1 {
+    font-size: 300%;
+    margin: 0;
+    padding: 1em;
+    padding-bottom: .5em;
+}
+
+h1, h2, h3, h4 {
+    font-weight: 300;
+}
+
+a {
+    color: #9966cc;
+    text-decoration: none;
+}
+
+.button {
+    font-size: 16px;
+    cursor: pointer;
+    padding: 12px 28px;
+    border-radius: 2px;
+    margin: 6px 8px;
+    margin-top: 6px;
+    margin-right: 8px;
+    margin-bottom: 6px;
+    margin-left: 8px;
+    color: hsla(0,0%,100%,.87);
+    background-color: #6441A4;
+    transition: 0.3s;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+    border: none;
+}
+
+header .button {
+    background-color: black;
+}
+
+.cards {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 700px;
+    margin: auto;
+}
+
+.card {
+    width: 300px;
+    padding: 20px;
+    min-width: 300px;
+    font-weight: 300;
+}
+
+.card h3 {
+    font-size: 150%;
+    margin: .05em;
+}
+
+.card p {
+    font-size: 90%;
+    color: rgba(255,255,255,.8);
+}
+
+.padded {
+    padding: 50px 0;
+}
+
+.brand-joiner {
+    font-size: 300%;
+    padding-right: 7px;
+    position: relative;
+    bottom: 20px;
+}
+
+footer {
+    padding: 12px 30px;
+    background-color: #111;
+    text-align: left;
+    padding-bottom: 2em;
+}
+
+*[mobile-only] {
+    display: none;
+}
+
+@media (max-width:500px) {
+    *[mobile-only] {
+        display: initial;
+    }
+
+    .brand-joiner {
+        bottom: 0;
+    }
+
+    header {
+        height: auto;
+    }
+}
