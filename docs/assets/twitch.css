@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500');
+@import url('https://fonts.googleapis.com/css?family=Inconsolata');
 
 body {
     font-family: 'Roboto', sans-serif;
@@ -99,6 +100,12 @@ header .button {
     position: relative;
     bottom: 2px;
     letter-spacing: .3px;
+}
+
+code {
+    padding: 2px;
+    font-family: 'Inconsolata', monospace;
+    background-color: #171717;
 }
 
 footer {
