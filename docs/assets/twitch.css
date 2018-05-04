@@ -88,6 +88,19 @@ header .button {
     bottom: 20px;
 }
 
+.new {
+    padding: 2px 5px;
+    border-radius: 15px;
+    font-weight: 500;
+    color: white;
+    font-size: 80%;
+    text-transform: uppercase;
+    background-color: #d50000;
+    position: relative;
+    bottom: 2px;
+    letter-spacing: .3px;
+}
+
 footer {
     padding: 12px 30px;
     background-color: #111;
