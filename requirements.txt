@@ -1,0 +1,6 @@
+aiohttp
+discord.py
+asyncio
+requests
+python-dateutil
+itertools
