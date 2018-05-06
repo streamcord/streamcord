@@ -14,7 +14,10 @@ class Games:
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/games/?name=" + name)
         r.raise_for_status()
-        r = r.json()["data"][0]
+        try:
+            r = r.json()["data"][0]
+        except IndexError:
+            return await self.bot.say("No results found.")
         e.description = "[View Streams](https://www.twitch.tv/directory/game/{})".format(r["name"].replace(' ', '%20'))
         e.title = r["name"]
         e.set_image(url=r["box_art_url"].format(width=285, height=380))
