@@ -17,6 +17,7 @@ class Clips:
     @clips.command(pass_context=True, name="from", aliases=["channel"])
     @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
     async def _from(self, ctx, twitch_user: str, *args):
+        twitch_user = twitch_user.split('/')[-1]
         trending = ""
         if "--trending" in args:
             trending = "&trending=true"

@@ -26,6 +26,7 @@ modules = ["mod.general", "mod.users", "mod.games", "mod.streams", "mod.audio", 
 bot.notifs = json.loads(open(os.path.join(os.getcwd(), 'data', 'notifs.json')).read())
 bot.cmds = 0
 bot.ratelimits = {"twitch": 0, "fortnite": 0, "rocketleague": 0, "pubg": 0}
+bot.vc = {}
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
@@ -92,11 +93,20 @@ async def on_server_leave(server):
 
 @bot.event
 async def on_command_error(error, ctx):
+    if ctx.message.content.lower().startswith(prefix + " notif "):
+        if isinstance(error, discord.NotFound):
+            await self.bot.say("That Discord text channel couldn't be found. Usage: `twitch notif add #discord_channel twitch_user`\nExample: `twitch notif add #general ninja`")
+        else:
+            await bot.send_message(ctx.message.channel, "The correct usage is: `twitch notif add #discord_channel twitch_user`.\nExample: `twitch notif add #general ninja`")
+        return
+    elif ctx.message.content.lower().startswith(prefix + " listen"):
+        if isinstance(error, discord.InvalidArgument):
+            await self.bot.say("You need to be in a valid voice channel.")
+        return
     if isinstance(error, commands.CommandNotFound):
-        if ctx.message.content.startswith(prefix + " https://twitch.tv") or ctx.message.content.startswith(prefix_alt + " https://twitch.tv"):
-            await bot.send_message(ctx.message.channel, "You can view info on a user by typing `twitch user <name>`.")
+        return
     elif isinstance(error, discord.Forbidden):
-        pass
+        return
     elif isinstance(error, commands.MissingRequiredArgument):
         await bot.send_message(ctx.message.channel, "You're missing required argument(s)!")
     elif isinstance(error, commands.NoPrivateMessage):
@@ -117,6 +127,7 @@ async def on_command_error(error, ctx):
     else:
         log.error(str(error))
         e = discord.Embed(color=discord.Color.red(), title="An Error Occurred", description="```{}```".format(error))
+        e.set_footer(text="Join the support server at discord.me/konomi")
         await bot.send_message(ctx.message.channel, embed=e)
         TRIGGER_WEBHOOK("Error in `{}`: {} (context: `{}`)".format(ctx.command.name, error, ctx.message.content))
 
@@ -130,9 +141,11 @@ async def on_command(ctx, command):
 
 @bot.event
 async def on_message(message):
+    if message.author.bot:
+        return
     if message.content.startswith(prefix) or message.content.startswith(prefix_alt):
         log.info("{0.author} #{0.channel} {0.server}: {0.content}".format(message))
-        if message.content == prefix + " help" or message.content == prefix_alt + " help":
+        if message.content.lower() == prefix + " help":
             e = discord.Embed(color=discord.Color(0x6441A4), title="<:twitch:404633403603025921> TwitchBot Help")
             e.description == "**Need support?** Join the TwitchBot Discord server at https://discord.gg/eDRnXd6"
             e.add_field(name="`General`", value="""
@@ -155,6 +168,7 @@ async def on_message(message):
             """, inline=False)
             e.add_field(name="`Audio`", value="""
 `twitch listen <user>` - Listen to a Twitch stream in the current voice channel
+`twitch nowplaying` - Shows the stream currently playing, if any
 `twitch leave` - Leaves a voice channel
             """, inline=False)
             e.add_field(name="`Game Stats`", value="""
@@ -169,7 +183,7 @@ TwitchBot is not affiliated or endorsed by Discord, Inc. or Twitch Interactive, 
             await bot.send_message(message.channel, embed=e)
         else:
             await bot.process_commands(message)
-    elif message.content == "<@{}>".format(bot.user.id):
+    elif message.content in ["<@{}>".format(bot.user.id), "twitch"]:
         await bot.send_message(message.channel, "Hello! <:twitch:404633403603025921> I'm TwitchBot. You can view my commands by typing `{} help`.".format(prefix))
 
 @bot.command(hidden=True, name="reload", pass_context=True)
@@ -226,7 +240,10 @@ async def poll_twitch():
                         for c in bot.notifs[s]:
                             if not bot.notifs[s][c] == stream['id']:
                                 try:
-                                    await bot.send_message(bot.get_channel(c), embed=e)
+                                    if c in ["442389961895968768", "423497606682116106"]:
+                                        await bot.send_message(bot.get_channel(c), "@everyone", embed=e)
+                                    else:
+                                        await bot.send_message(bot.get_channel(c), embed=e)
                                 except discord.InvalidArgument:
                                     del bot.notifs[s][c]
                                 except:

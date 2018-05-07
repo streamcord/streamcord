@@ -43,7 +43,7 @@ class GameStats:
             e.description = "{} hours played in {} games".format(stats['game']['time_played'], round(stats['game']['games_played']))
             e.add_field(name="Competitive Rank", value="{} {}".format(self.emoji[stats['overall']['tier']], stats['overall']['comprank']))
             e.add_field(name="Level", value=str((stats['overall']['prestige'] * 100) + stats['overall']['level']))
-            e.add_field(name="General", value="• {healing_done} healing done\n• {cards} cards\n• best multikill: {multikill_best} players\n• {damage_done} damage inflicted\n• {environmental_kills} environmental kills".format(**stats['game']))
+            e.add_field(name="General", value="• {healing_done} healing done\n• {cards} cards\n• best multikill: {multikill_best} players\n• {damage_done} damage inflicted".format(**stats['game']))
             e.add_field(name="Matches Played", value="• {total} total\n• {win} wins\n• {loss} losses\n• {wr}% win rate".format(total=stats['overall']['games'], win=stats['overall']['wins'], loss=stats['overall']['losses'], wr=stats['overall']['win_rate']))
             e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
             e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))

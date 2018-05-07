@@ -10,8 +10,7 @@ class Streams:
     @commands.command(pass_context=True)
     async def stream(self, ctx, *, user):
         await self.bot.send_typing(ctx.message.channel)
-        if "https://twitch.tv/" in user:
-            user = username.strip("https://twitch.tv").strip("/")
+        user = user.split('/')[-1]
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
         r.raise_for_status()
@@ -38,8 +37,7 @@ Stream Preview:
     @commands.command(pass_context=True)
     async def watch(self, ctx, *, user):
         await self.bot.send_typing(ctx.message.channel)
-        if "https://twitch.tv/" in user:
-            user = username.strip("https://twitch.tv").strip("/")
+        user = user.split('/')[-1]
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
         r.raise_for_status()
         if r.json()["data"] == []:
