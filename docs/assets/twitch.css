@@ -11,7 +11,7 @@ body {
 
 header {
     background: linear-gradient(345deg, #6441A4, #9966cc);
-    height: 500px;
+    min-height: 500px;
     margin-bottom: 80px;
 }
 
@@ -121,8 +121,43 @@ footer {
     padding-bottom: 2em;
 }
 
+.brand {
+    padding: 8.5px;
+    border-radius: 100px;
+    background-color: black;
+    color: white;
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    vertical-align: middle;
+    padding-bottom: 10px;
+    margin: 5px;
+}
+
+.brand.discord {
+    background-color: #7289da;
+}
+
+.brand.twitter {
+    background-color: #1da1f2;
+}
+
+.brand.paypal {
+    background-color: #003087;
+}
+
+.brand.github {
+    background-color: #333;
+    padding: 7.5px 9px 9.5px;
+}
+
 *[mobile-only] {
     display: none;
+}
+
+#ask-donation {
+    color: rgba(255,255,255,.5);
+    margin-top: -15px;
 }
 
 @media (max-width:500px) {
