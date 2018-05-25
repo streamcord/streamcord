@@ -24,10 +24,10 @@ class Audio:
             await self.bot.say("You need to be in a voice channel!")
             return
 
-        m = await self.bot.say("Please wait... <a:loading:414007832849940482>")
+        m = await ctx.send("Please wait... <a:loading:414007832849940482>")
         try: vc = await self.bot.join_voice_channel(voice_channel)
         except discord.ClientException:
-            session = ctx.message.server.voice_client
+            session = ctx.message.guild.voice_client
             await session.disconnect()
             await asyncio.sleep(2)
             vc = await self.bot.join_voice_channel(voice_channel)
@@ -43,35 +43,35 @@ class Audio:
             player = await vc.create_ytdl_player(url, ytdl_options={'quiet':False})
             player.start()
             self.bot.vc[ctx.message.server.id] = e
-            await self.bot.delete_message(m)
-            await self.bot.say(embed=e)
+            await m.delete()
+            await ctx.send(embed=e)
         except youtube_dl.DownloadError:
-            await self.bot.say("<:twitch:404633403603025921> Either that user doesn't exist or they are not online.")
+            await ctx.send("<:twitch:404633403603025921> Either that user doesn't exist or they are not online.")
         except:
-            await self.bot.say(traceback.format_exc())
+            await ctx.send(traceback.format_exc())
 
     @commands.command(pass_context=True, aliases=["stop"])
     async def leave(self, ctx):
         author = ctx.message.author
         vc = author.voice_channel
-        session = ctx.message.server.voice_client
+        session = ctx.message.guild.voice_client
 
         if session == None:
-            await self.bot.say("Currently not streaming anything.")
+            await ctx.send("Currently not streaming anything.")
             return
         else:
             await session.disconnect()
             del self.bot.vc[ctx.message.server.id]
-            await self.bot.say("Left the voice channel.")
+            await ctx.send("Left the voice channel.")
 
     @commands.command(pass_context=True, aliases=['playing', 'nowplaying'])
     async def np(self, ctx):
         vc = self.bot.vc.get(ctx.message.server.id)
         if vc is None:
-            await self.bot.say("Currently not streaming anything.")
+            await ctx.send("Currently not streaming anything.")
         else:
             vc.title = "Now playing in {}".format(ctx.message.author.voice_channel.name)
-            await self.bot.say(embed=vc)
+            await ctx.send(embed=vc)
 
 def setup(bot):
     bot.add_cog(Audio(bot))
