@@ -9,7 +9,7 @@ class Streams:
 
     @commands.command(pass_context=True)
     async def stream(self, ctx, *, user):
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         user = user.split('/')[-1]
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
@@ -32,18 +32,18 @@ Playing {2} for {0} viewers
 Stream Preview:
     """.format(r["viewer_count"], u["login"], g["name"])
             e.set_image(url=r["thumbnail_url"].format(width="1920", height="1080"))
-            await self.bot.say(embed=e)
+            await ctx.send(embed=e)
 
     @commands.command(pass_context=True)
     async def watch(self, ctx, *, user):
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         user = user.split('/')[-1]
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
         r.raise_for_status()
         if r.json()["data"] == []:
-            await self.bot.say("That user doesn't exist or is not online.")
+            await ctx.send("That user doesn't exist or is not online.")
         else:
-            await self.bot.say("**<:twitch:404633403603025921> Live on Twitch**\nhttps://twitch.tv/{}".format(user))
+            await ctx.send("**<:twitch:404633403603025921> Live on Twitch**\nhttps://twitch.tv/{}".format(user))
 
 def setup(bot):
     bot.add_cog(Streams(bot))

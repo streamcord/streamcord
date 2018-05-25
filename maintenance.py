@@ -2,7 +2,7 @@ import discord, asyncio
 from utils import settings
 import logging
 
-c = discord.Client()
+c = discord.AutoShardedClient()
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 
 @c.event

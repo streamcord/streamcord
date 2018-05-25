@@ -19,21 +19,21 @@ class GameStats:
     @commands.command(pass_context=True, aliases=["ow"])
     @commands.cooldown(rate=1, per=2)
     async def overwatch(self, ctx, platform, *, username):
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         username = username.replace('#', '-').replace(' ', '_')
         if platform == "pc":
             if not '-' in username:
-                await self.bot.say("Please enter your battletag in a format of `name#id`.")
+                await ctx.send("Please enter your battletag in a format of `name#id`.")
                 return
         elif not platform in ["pc", "psn", "xbl"]:
-            await self.bot.say("Platform must be one of `pc`, `psn`, or `xbl`.")
+            await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
         else:
             r = OWAPI_REQUEST("/u/{}/stats?platform={}".format(username, platform))
             if r.status_code == 404 or (r.json().get('any') is None and r.json().get('us') is None and r.json().get('eu') is None and r.json().get('kr') is None):
-                await self.bot.say("Player could not be found or no competitive stats exist for this season.")
+                await ctx.send("Player could not be found or no competitive stats exist for this season.")
                 return
             elif r.status_code != 200:
-                await self.bot.say("An error occurred: {0.status_code}".format(r))
+                await ctx.send("An error occurred: {0.status_code}".format(r))
                 return
             res = r.json()['any'] or r.json()['us'] or r.json()['eu'] or r.json()['kr']
             stats = {'overall': res['stats']['competitive']['overall_stats'], 'game': res['stats']['competitive']['game_stats']}
@@ -48,21 +48,21 @@ class GameStats:
             e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
             e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))
             e.set_footer(text="Powered by owapi.net")
-            await self.bot.say(embed=e)
+            await ctx.send(embed=e)
 
     @commands.command(pass_context=True, aliases=["fn"])
     @commands.cooldown(rate=1, per=2)
     async def fortnite(self, ctx, platform, *, epic_nickname):
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         if not platform in ["pc", "psn", "xbl"]:
-            await self.bot.say("Platform must be one of `pc`, `psn`, or `xbl`.")
+            await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
             return
         r = await TRN_FORTNITE_REQUEST(self, "/{}/{}".format(platform, epic_nickname))
         if r.status_code == 404 or r.json().get("error") == "Player Not Found":
-            await self.bot.say("Player not found. Check the spelling of the username or try a different platform.")
+            await ctx.send("Player not found. Check the spelling of the username or try a different platform.")
             return
         elif r.status_code != 200:
-            await self.bot.say("An error occurred" + str(r.status_code))
+            await ctx.send("An error occurred" + str(r.status_code))
             return
         stats = r.json()['stats']['p2'] or r.json()['stats']['p10'] or r.json()['stats']['p9']
         e = discord.Embed(color=0x2196F3, title="Fortnite Stats")
@@ -73,12 +73,12 @@ class GameStats:
         e.add_field(name="Standings", value="• {} wins\n• {} times reached top 3\n• {} times reached top 5\n• {} times reached top 10\n• {} times reached top 25".format(stats['top1']['value'], stats['top3']['value'], stats['top5']['value'], stats['top10']['value'], stats['top25']['value']))
         e.add_field(name="Win Percentage", value="{}%".format(round(stats['top1']['valueInt'] / stats['matches']['valueInt'], 2) * 100))
         e.set_footer(text='Powered by fortnitetracker.com')
-        await self.bot.say(embed=e)
+        await ctx.send(embed=e)
 
     @commands.command(pass_context=True, aliases=["rl"])
     @commands.cooldown(rate=1, per=2)
     async def rocketleague(self, ctx, platform, *, username):
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         if not platform in ["pc", "psn", "xbl"]:
             await self.bot.say("Platform must be one of `pc`, `psn`, or `xbl`.")
             return
@@ -90,10 +90,10 @@ class GameStats:
             platform = 3
         r = await RLS_REQUEST(self, "/player?unique_id={}&platform_id={}".format(username, platform))
         if r.status_code == 404:
-            await self.bot.say("Player not found. Please enter the username or Steam profile link of the player, and choose the correct platform.")
+            await ctx.send("Player not found. Please enter the username or Steam profile link of the player, and choose the correct platform.")
             return
         elif r.status_code != 200:
-            await self.bot.say("An error occurred: {}".format(r.status_code))
+            await ctx.send("An error occurred: {}".format(r.status_code))
             return
         res = r.json()
         e = discord.Embed(color=0x2196F3, title="Rocket League Stats")
@@ -102,12 +102,12 @@ class GameStats:
         e.set_thumbnail(url=res['avatar'])
         e.set_image(url=res['signatureUrl'])
         e.set_footer(text="Powered by rocketleaguestats.com")
-        await self.bot.say(embed=e)
+        await ctx.send(embed=e)
 
     @commands.command(pass_context=True)
     @commands.cooldown(rate=1, per=2)
     async def pubg(self, ctx, platform, *, username): # nvm api doesn't work anyways
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         if not platform in ["pc", "psn", "xbl"]:
             await self.bot.say("Platform must be one of `pc`, `psn`, or `xbl`.")
             return
