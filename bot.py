@@ -1,4 +1,4 @@
-﻿from discord.ext import commands
+from discord.ext import commands
 from utils import settings
 import discord, asyncio
 from utils.functions import TWAPI_REQUEST, STREAM_REQUEST, TRIGGER_WEBHOOK
@@ -47,9 +47,9 @@ def split_every(n, iterable):
 
 async def change_presence():
     if not settings.BETA:
-        await bot.change_presence(game=discord.Game(name="twitch help • {} servers".format(len(bot.servers)), type=1, url="https://twitch.tv/playoverwatch"))
+        await bot.change_presence(activity=discord.Game(name="twitch help • {} servers".format(len(bot.guilds)), type=1, url="https://twitch.tv/playoverwatch"))
     else:
-        await bot.change_presence(status=discord.Status.dnd, game=discord.Game(name="in development • twbeta help"))
+        await bot.change_presence(activity=discord.Game(name="in development • twbeta help"), status=discord.Status.dnd)
 
 for m in modules:
     try:
@@ -95,40 +95,40 @@ async def on_server_leave(server):
 async def on_command_error(error, ctx):
     if ctx.message.content.lower().startswith(prefix + " notif "):
         if isinstance(error, discord.NotFound):
-            await self.bot.say("That Discord text channel couldn't be found. Usage: `twitch notif add #discord_channel twitch_user`\nExample: `twitch notif add #general ninja`")
+            await ctx.send("That Discord text channel couldn't be found. Usage: `twitch notif add #discord_channel twitch_user`\nExample: `twitch notif add #general ninja`")
         else:
-            await bot.send_message(ctx.message.channel, "The correct usage is: `twitch notif add #discord_channel twitch_user`.\nExample: `twitch notif add #general ninja`")
+            await ctx.send("The correct usage is: `twitch notif add #discord_channel twitch_user`.\nExample: `twitch notif add #general ninja`")
         return
     elif ctx.message.content.lower().startswith(prefix + " listen"):
         if isinstance(error, discord.InvalidArgument):
-            await self.bot.say("You need to be in a valid voice channel.")
+            await ctx.send("You need to be in a valid voice channel.")
         return
     if isinstance(error, commands.CommandNotFound):
         return
     elif isinstance(error, discord.Forbidden):
         return
     elif isinstance(error, commands.MissingRequiredArgument):
-        await bot.send_message(ctx.message.channel, "You're missing required argument(s)!")
+        await ctx.send("You're missing required argument(s)!")
     elif isinstance(error, commands.NoPrivateMessage):
-        await bot.send_message(ctx.message.channel, "This command can't be used in private messages!")
+        await ctx.send("This command can't be used in private messages!")
     elif isinstance(error, commands.CheckFailure):
-        await bot.send_message(ctx.message.channel, "You don't have permission to run this command.")
+        await ctx.send("You don't have permission to run this command.")
     elif isinstance(error, commands.DisabledCommand):
-        await bot.send_message(ctx.message.channel, "This command is disabled.")
+        await ctx.send("This command is disabled.")
     elif isinstance(error, TooManyRequestsError):
-        await bot.send_message(ctx.message.channel, "<:twitch:404633403603025921> Ratelimited by the Twitch API.")
+        await ctx.send("<:twitch:404633403603025921> Ratelimited by the Twitch API.")
         TRIGGER_WEBHOOK("Ratelimited by Twitch API! Command: `{}` (context: `{}`)".format(ctx.command.name, ctx.message.content))
     elif isinstance(error, commands.CommandOnCooldown):
-        await bot.send_message(ctx.message.channel, "You can run this command in {} seconds.".format(round(error.retry_after, 1)))
+        await ctx.send("You can run this command in {} seconds.".format(round(error.retry_after, 1)))
     elif isinstance(error, requests.exceptions.RequestException):
         e = discord.Embed(color=discord.Color.red(), title="Web Request Failed", description="```{}```".format(error))
-        await bot.send_message(ctx.message.channel, embed=e)
+        await ctx.send(ctx.message.channel, embed=e)
         TRIGGER_WEBHOOK("{0.method} {0.url} {0.status_code} (command: {1.command})".format(error.request, ctx))
     else:
         log.error(str(error))
         e = discord.Embed(color=discord.Color.red(), title="An Error Occurred", description="```{}```".format(error))
         e.set_footer(text="Join the support server at discord.me/konomi")
-        await bot.send_message(ctx.message.channel, embed=e)
+        await ctx.send(embed=e)
         TRIGGER_WEBHOOK("Error in `{}`: {} (context: `{}`)".format(ctx.command.name, error, ctx.message.content))
 
 ###########################
@@ -180,31 +180,31 @@ async def on_message(message):
             e.set_footer(text="""
 TwitchBot is not affiliated or endorsed by Discord, Inc. or Twitch Interactive, Inc.
             """)
-            await bot.send_message(message.channel, embed=e)
+            await ctx.send(embed=e)
         else:
             await bot.process_commands(message)
     elif message.content in ["<@{}>".format(bot.user.id), "twitch"]:
-        await bot.send_message(message.channel, "Hello! <:twitch:404633403603025921> I'm TwitchBot. You can view my commands by typing `{} help`.".format(prefix))
+       ctx.send("Hello! <:twitch:404633403603025921> I'm TwitchBot. You can view my commands by typing `{} help`.".format(prefix))
 
-@bot.command(hidden=True, name="reload", pass_context=True)
+@bot.command(hidden=True, name="reload")
 async def _reload(ctx, cog):
     if not ctx.message.author.id == "236251438685093889": return
     try:
         bot.unload_extension(cog)
         bot.load_extension(cog)
     except Exception as e:
-        await bot.say("Failed to reload cog: `{}`".format(e))
+        await ctx.send("Failed to reload cog: `{}`".format(e))
     else:
-        await bot.say("Successfully reloaded cog.")
+        await ctx.send("Successfully reloaded cog.")
 
-@bot.command(hidden=True, name="eval", pass_context=True)
+@bot.command(hidden=True, name="eval")
 async def _eval(ctx, *, code):
     if not ctx.message.author.id == "236251438685093889": return
     try:
         e = eval(code)
-        await bot.say("```py\n{}\n```".format(e))
+        await ctx.send("```py\n{}\n```".format(e))
     except Exception as e:
-        await bot.say("```py\n{}: {}\n```".format(type(e).__name__, e))
+        await ctx.send("```py\n{}: {}\n```".format(type(e).__name__, e))
 
 ###########################
 #          BACKGROUND TASKS
@@ -240,10 +240,11 @@ async def poll_twitch():
                         for c in bot.notifs[s]:
                             if not bot.notifs[s][c] == stream['id']:
                                 try:
-                                    if c in ["442389961895968768", "423497606682116106"]:
-                                        await bot.send_message(bot.get_channel(c), "@everyone", embed=e)
+                                    chan = bot.get_channel(c)
+                                    if c in [442389961895968768, 423497606682116106]:
+                                        await chan.send("@everyone", embed=e)
                                     else:
-                                        await bot.send_message(bot.get_channel(c), embed=e)
+                                        await chan.send(embed=e)
                                 except discord.InvalidArgument:
                                     del bot.notifs[s][c]
                                 except:
