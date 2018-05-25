@@ -12,7 +12,7 @@ class Notifs:
     @commands.group(pass_context=True)
     async def notif(self, ctx):
         if ctx.invoked_subcommand is None:
-            await self.bot.say("Type `twitch help notif` to view command usage.")
+            await ctx.send("Type `twitch help notif` to view command usage.")
 
     @notif.command(pass_context=True)
     @commands.has_permissions(manage_server=True)
@@ -28,7 +28,7 @@ class Notifs:
                     game = u.split("=", 1)
             else:
                 try:
-                    await self.bot.send_typing(ctx.message.channel)
+                    await ctx.trigger_typing()
                     s = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + u)
                     if s.status_code == 404:
                         await self.bot.say("That user does not exist.")
@@ -41,11 +41,11 @@ class Notifs:
                         f.write(json.dumps(self.bot.notifs))
                         f.close()
                         if len(username) == 1:
-                            await self.bot.say("You should now receive a message in {} when `{}` goes live.".format(discord_channel.mention, u))
+                            await ctx.send("You should now receive a message in {} when `{}` goes live.".format(discord_channel.mention, u))
                 except:
-                    await self.bot.say(traceback.format_exc())
+                    await ctx.send(traceback.format_exc())
         if len(u) > 1:
-            await self.bot.say("You should now receive a message in {} when those channels go live.".format(discord_channel.mention))
+            await ctx.send("You should now receive a message in {} when those channels go live.".format(discord_channel.mention))
 
     @notif.command(aliases=["del", "delete"], pass_context=True)
     @commands.has_permissions(manage_server=True)
@@ -57,7 +57,7 @@ class Notifs:
         try:
             s = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + username)
             if s.status_code == 404:
-                await self.bot.say("That user does not exist.")
+                await ctx.send("That user does not exist.")
             else:
                 del self.bot.notifs[s.json()['data'][0]['id']][discord_channel.id]
                 if len(self.bot.notifs[s.json()['data'][0]['id']]) == 0:
@@ -66,11 +66,11 @@ class Notifs:
                 f.write(json.dumps(self.bot.notifs))
                 f.close()
         except KeyError:
-            await self.bot.say("Either that user doesn't exist or is not set up for that channel. kthx")
+            await ctx.send("Either that user doesn't exist or is not set up for that channel. kthx")
         except:
-            await self.bot.say(traceback.format_exc())
+            await ctx.send(traceback.format_exc())
         else:
-            await self.bot.say("You won't get any notifications in {} when `{}` goes live.".format(discord_channel.mention, username))
+            await ctx.send("You won't get any notifications in {} when `{}` goes live.".format(discord_channel.mention, username))
 
 def setup(bot):
     bot.add_cog(Notifs(bot))
