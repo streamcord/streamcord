@@ -19,7 +19,7 @@ if settings.BETA:
     prefix = "twbeta"
     prefix_alt = "Twbeta"
 
-bot = commands.Bot(command_prefix=[prefix + " ", prefix_alt + " "])
+bot = commands.AutoShardedBot(command_prefix=[prefix + " ", prefix_alt + " "])
 loop = asyncio.get_event_loop()
 modules = ["mod.general", "mod.users", "mod.games", "mod.streams", "mod.audio", "mod.notifs", "mod.stats", "mod.dev", "mod.clips"]
 
