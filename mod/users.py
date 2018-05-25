@@ -9,12 +9,12 @@ class Users:
 
     @commands.command(pass_context=True, aliases=["channel"])
     async def user(self, ctx, *, user):
-        await self.bot.send_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         user = user.split('/')[-1]
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + user)
         if r.json()["data"] == [] or r.status_code == 400:
-            await self.bot.say("That user doesn't exist. If you entered the user's full profile url, try redoing the command with just their user name.")
+            await ctx.send("That user doesn't exist. If you entered the user's full profile url, try redoing the command with just their user name.")
         r.raise_for_status()
         r = r.json()["data"][0]
         s = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
@@ -36,7 +36,7 @@ class Users:
             e.add_field(inline=False, name="Currently Live", value="Playing {} for {} viewers\n\n**[Watch on Twitch](https://twitch.tv/{})**".format(g["name"], s["viewer_count"], user))
         else:
             e.add_field(inline=False, name="Currently Offline", value="[View Twitch Profile](https://twitch.tv/{})".format(user))
-        await self.bot.say(embed=e)
+        await ctx.send(embed=e)
 
 def setup(bot):
     bot.add_cog(Users(bot))
