@@ -4,15 +4,45 @@
 body {
     font-family: 'Roboto', sans-serif;
     margin: 0;
-    background-color: #212121;
+    background-color: rgb(45, 48, 53);
     color: white;
     text-align: center;
 }
 
+nav {
+    background: #54338C;
+    padding: 21px;
+    text-align: left;
+}
+
+nav a:not(.main) {
+    font-size: .9em;
+    color: rgba(255,255,255,.7);
+    padding: 0 10px;
+}
+
+nav .main {
+    color: white;
+}
+
 header {
-    background: linear-gradient(345deg, #6441A4, #9966cc);
-    min-height: 500px;
+    background: #593595;
     margin-bottom: 80px;
+    position: relative;
+}
+
+header .sep {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: transparent url("sep.svg") repeat-x bottom center;
+    animation: flow 10s infinite linear;
+}
+
+@media screen and (min-width: 600px) {
+    header .sep {animation: flow 80s infinite linear;}
 }
 
 header h1 {
@@ -55,7 +85,8 @@ a {
 }
 
 header .button {
-    background-color: black;
+    color: #54338C;
+    background-color: white;
 }
 
 .cards {
@@ -111,12 +142,12 @@ header .button {
 code {
     padding: 2px;
     font-family: 'Inconsolata', monospace;
-    background-color: #171717;
+    background-color: rgb(35, 39, 42);
 }
 
 footer {
     padding: 12px 30px;
-    background-color: #111;
+    background-color: rgb(35, 39, 42);
     text-align: left;
     padding-bottom: 2em;
 }
@@ -147,7 +178,8 @@ footer {
 }
 
 .brand.github {
-    background-color: #333;
+    color: #333;
+    background-color: white;
     padding: 7.5px 9px 9.5px;
 }
 
@@ -172,4 +204,10 @@ footer {
     header {
         height: auto;
     }
+}
+
+@keyframes flow {
+    0% {background-position: bottom left;}
+    50% {background-position: bottom right;}
+    100% {background-position: bottom left;}
 }

@@ -11,9 +11,9 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://twitch.disgd.pw">
     <meta property="og:image" content="https://images-ext-2.discordapp.net/external/7_UKRZ15PN7rqGM-YT0C81nL1h48Z6Ju99dYdotj3pM/%3Fsize%3D1024/https/cdn.discordapp.com/avatars/375805687529209857/7528f050ec2521877bcfa1abe3cfbab4.webp">
-    <meta name="theme-color" content="#6441A4">
-    <meta name="msapplication-navbutton-color" content="#6441A4">
-    <meta name="apple-mobile-web-app-status-bar-style" content="#6441A4">
+    <meta name="theme-color" content="#54338C">
+    <meta name="msapplication-navbutton-color" content="#54338C">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#54338C">
     <title>TwitchBot</title>
     <link rel="stylesheet" href="assets/twitch.css">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
@@ -34,10 +34,18 @@
     <!--<div class="notice">
         TwitchBot is currently unavailable for maintenance. You can still invite the bot to your server, but commands will temporarily not work. Join the support server for more info on when TwitchBot will be online again.
     </div>-->
+    <nav>
+        <span><a class="main" href="/">TwitchBot</a></span>
+        <span style="padding-left:10px">
+            <a href="#features">Features</a>
+            <a href="#invite">Invite</a>
+            <a href="faq.html">FAQ</a>
+            <a href="https://discord.me/konomi">Support</a>
+        </span>
+    </nav>
     <header>
         <div style="text-align:center">
-            <h1>TwitchBot</h1>
-            <div>
+            <div style="padding-top:3em">
                 <svg width="160px" height="80px" version="1.1" viewBox="0 0 94 32" x="0px" y="0px" style="fill:white"><path clip-rule="evenodd" d="M88,5h-6V0h-9l-6,5h-5.5L59,7.5V5h-5V0H36v5H16l-5-5H0v22l5,5.25L14,32h6v-1.5l3,1.5h12l2-3l1,3h7v-3l3,3h8l0.5-3l2.5,3h10l3-3v3h4l3-3v3h7l7-6V10L88,5z M13,13H8v6h5v6H6l-4-4V2h6v5h5V13z M36,21.5L32.5,25H15V7h6v12h2V7h6v12h2V7h5V21.5z M44,25h-6V7h6V25z M44,5h-6V2h6V5z M57,13h-5v6h5v6h-7l-4-4V2h6v5h5V13z M72,13h-7v6h7v6h-9l-4-4V11l4-4h9V13z M91,25h-6V13h-5v12h-6V2h6v5h7l4,4V25z" fill-rule="evenodd"></path></svg>
                 <br mobile-only>
                 <span class="brand-joiner">&ensp;+ </span>
@@ -45,14 +53,15 @@
                 <img src="assets/discord.svg" height="80" style="position:relative;top:3px;">
             </div>
             <h2 style="max-width:700px;margin:1em auto">Browse Twitch, get stream notifications, and listen to streams right from your Discord server.</h2>
-            <p style="margin-top:6em;">
-                <a class="button" href="https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot%20identify&response_type=code&redirect_uri=https://twitch.disgd.pw/thanks.html">Invite TwitchBot</a>
-                <a class="button" href="https://discord.gg/UNYzJqV">Support Server</a>
+            <p style="margin-top:6em;padding-bottom:2em;line-height:3em">
+                <a class="button primary" href="https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot%20identify&response_type=code&redirect_uri=https://twitch.disgd.pw/thanks.html">Add to Discord</a>
+                <a class="button" href="https://discord.me/konomi">Support Server</a>
                 <br><br>
             </p>
         </div>
+        <div class="sep"></div>
     </header>
-    <h2 style="font-size:250%">Features</h2>
+    <h2 style="font-size:250%">What can TwitchBot do?</h2>
     <div class="cards">
         <div class="card">
             <img src="https://png.icons8.com/nolan/64/ffffff/twitch.png">
@@ -89,11 +98,11 @@
         <h2 style="font-size:250%">Add TwitchBot to your server</h2>
         <p>
             <br>
-            <a class="button" href="https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot%20identify&response_type=code&redirect_uri=https://twitch.disgd.pw/thanks.html">Invite TwitchBot</a>
+            <a class="button" href="https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot%20identify&response_type=code&redirect_uri=https://twitch.disgd.pw/thanks.html">Add to Discord</a>
             <br><br><br>
             <a href="how-to.html?utm_source=self&utm_medium=after_invite_btn"><i class='fas fa-question'></i>&emsp;How-to guide and FAQ</a>
             <br><br>
-            <a class="brand discord" href="https://discord.gg/eDRnXd6"><i class="fab fa-discord"></i></a>
+            <a class="brand discord" href="https://discord.me/konomi"><i class="fab fa-discord"></i></a>
             <a class="brand paypal" href="https://www.paypal.me/akireee/5"><i class="fab fa-paypal"></i></a>
             <a class="brand github" href="https://github.com/devakira/twitchbot"><i class="fab fa-github"></i></a>
             <a class="brand twitter" href="https://twitter.com/AkiraDev_"><i class="fab fa-twitter"></i></a>
