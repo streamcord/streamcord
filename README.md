@@ -20,6 +20,8 @@ We are not offering any support for people who want to clone TwitchBot for their
 
  - Python 3.6
  - All modules in the [requirements.txt](https://github.com/devakira/twitchbot/blob/master/requirements.txt) file.
+ - discord.py rewrite
+ - ffmpeg and youtube_dl
  - discord.py voice (for channel streaming support)
 
 ## Keys needed

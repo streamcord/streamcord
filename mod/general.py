@@ -14,9 +14,12 @@ class General:
         e = discord.Embed(color=discord.Color(0x6441A4), title="<:twitch:404633403603025921> TwitchBot Stats")
         u = GET_UPTIME(self.bot.uptime)
         e.add_field(name="Uptime", value=u, inline=False)
-        e.add_field(name="Usage", value="**•** {} servers\n**•** {} users\n**•** {} commands".format(len(self.bot.servers), len(list(self.bot.get_all_members())), self.bot.cmds), inline=False)
+        e.add_field(name="Usage", value="**•** {} servers\n**•** {} users\n**•** {} commands run".format(len(self.bot.guilds), len(list(self.bot.get_all_members())), self.bot.cmds), inline=False)
+        e.add_field(name="Shard Info", value="**•** Current shard: {}\n**•** Shard latency: {}ms\n**•** Total shards: {}".format(self.bot.shard_id, round(self.bot.latency*1000), self.bot.shard_count))
         e.add_field(name="Website", value="https://twitch.disgd.pw", inline=False)
         e.add_field(name="Discord", value="https://discord.me/konomi", inline=False)
+        e.add_field(name="Upvote", value="https://discordbots.org/bot/375805687529209857/vote", inline=False)
+        e.add_field(name="PayPal", value="https://paypal.me/akireee", inline=False)
         e.add_field(name="Developer", value="Akira#4587", inline=False)
         e.set_thumbnail(url=self.bot.user.avatar_url)
         await ctx.send(embed=e)
@@ -24,7 +27,7 @@ class General:
     @commands.command(pass_context=True)
     async def ping(self, ctx):
         t = time.time()
-        await ctx.trigger_typing(ctx.message.channel)
+        await ctx.trigger_typing()
         t2 = round((time.time() - t) * 1000)
         await ctx.send("Pong! {}ms".format(t2))
 

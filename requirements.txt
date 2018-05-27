@@ -1,6 +1,7 @@
 aiohttp
-discord.py
+discord.py[rewrite]
 asyncio
 requests
 python-dateutil
 itertools
+youtube_dl

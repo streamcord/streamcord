@@ -16,7 +16,7 @@ class Notifs:
 
     @notif.command(pass_context=True)
     @commands.has_permissions(manage_server=True)
-    async def add(self, ctx, discord_channel: discord.Channel, *, twitch_users: str):
+    async def add(self, ctx, discord_channel: discord.TextChannel, *, twitch_users: str):
         """Sets up notifications for a Twitch user in the specified channel."""
         username = twitch_users
         if "https://twitch.tv/" in twitch_users:
@@ -49,7 +49,7 @@ class Notifs:
 
     @notif.command(aliases=["del", "delete"], pass_context=True)
     @commands.has_permissions(manage_server=True)
-    async def remove(self, ctx, discord_channel: discord.Channel, twitch_user: str):
+    async def remove(self, ctx, discord_channel: discord.TextChannel, twitch_user: str):
         """Deletes notifications for a Twitch user in the specified channel."""
         username = twitch_user
         if "https://twitch.tv/" in twitch_user:

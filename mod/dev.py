@@ -9,10 +9,30 @@ class Dev:
         self.bot = bot
 
     def owner_only(ctx):
-        return ctx.message.author.id == "236251438685093889"
+        return ctx.message.author.id == 236251438685093889
 
     def check_fail(ctx):
         return False
+
+    @commands.command(hidden=True, name="reload")
+    async def _reload(self, ctx, cog):
+        if not ctx.message.author.id == 236251438685093889: return
+        try:
+            bot.unload_extension(cog)
+            bot.load_extension(cog)
+        except Exception as e:
+            await ctx.send("Failed to reload cog: `{}`".format(e))
+        else:
+            await ctx.send("Successfully reloaded cog.")
+
+    @commands.command(hidden=True, name="eval")
+    async def _eval(self, ctx, *, code):
+        if not ctx.message.author.id == 236251438685093889: return
+        try:
+            e = eval(code)
+            await ctx.send("```py\n{}\n```".format(e))
+        except Exception as e:
+            await ctx.send("```py\n{}: {}\n```".format(type(e).__name__, e))
 
     @commands.command()
     @commands.check(owner_only)
