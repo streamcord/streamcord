@@ -33,7 +33,7 @@
     <style>
     .rotate {animation: 3s rotate infinite ease-in-out;}
     .tos {max-width:700px;margin:auto;color:white !important;}
-    *[class^="c-"] {color: white;}
+    .tos *[class^="c"] {color: white;}
 
     @keyframes rotate {
         0% {transform: rotate(0deg);}
@@ -68,6 +68,7 @@
     <script async defer>
         $.get("https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true", function(data) {
             $(".tos").html(data);
+            $(".tos style").html("");
         });
     </script>
     <div class="padded"></div>
