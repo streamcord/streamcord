@@ -7,6 +7,7 @@ body {
     background-color: rgb(45, 48, 53);
     color: white;
     text-align: center;
+    overflow-x: hidden;
 }
 
 nav {
@@ -41,8 +42,19 @@ header .sep {
     animation: flow 10s infinite linear;
 }
 
+.sep-2 {
+    width: 100%;
+    height: 30px;
+    margin-top: 200px;
+    background: transparent url("sep-2.svg") repeat-x bottom center;
+    animation: flow_reverse 10s infinite linear;
+    z-index: 1001;
+    position: relative;
+}
+
 @media screen and (min-width: 600px) {
     header .sep {animation: flow 80s infinite linear;}
+    .sep-2 {animation: flow_reverse 80s infinite linear;}
 }
 
 header h1 {
@@ -147,9 +159,11 @@ code {
 
 footer {
     padding: 12px 30px;
-    background-color: rgb(35, 39, 42);
+    background-color: rgb(26, 31, 33);
     text-align: left;
     padding-bottom: 2em;
+    position: relative;
+    z-index: 1001;
 }
 
 .brand {
@@ -180,16 +194,11 @@ footer {
 .brand.github {
     color: #333;
     background-color: white;
-    padding: 7.5px 9px 9.5px;
+    padding: 7.5px 9px 9px;
 }
 
 *[mobile-only] {
     display: none;
-}
-
-#ask-donation {
-    color: rgba(255,255,255,.5);
-    margin-top: -15px;
 }
 
 @media (max-width:500px) {
@@ -210,4 +219,10 @@ footer {
     0% {background-position: bottom left;}
     50% {background-position: bottom right;}
     100% {background-position: bottom left;}
+}
+
+@keyframes flow_reverse {
+    0% {background-position: bottom right;}
+    50% {background-position: bottom left;}
+    100% {background-position: bottom right;}
 }

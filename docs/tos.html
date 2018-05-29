@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A Discord bot that brings Twitch into your Discord server.">
+    <meta name="keywords" content="discord, bot, discord bot, discord bots, twitch, twitch bot, twitch integration, discord integration, mee6, stream, discord music bot, twitch stream, now live, ninja, fortnite, overwatch, rocket league, game, stats, discord game stats">
+    <meta http-equiv="Access-Control-Allow-Origin" value="*">
+    <meta property="og:title" content="TwitchBot">
+    <meta property="og:description" content="A Discord bot that brings Twitch into your Discord server.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://twitch.disgd.pw">
+    <meta property="og:image" content="https://images-ext-2.discordapp.net/external/7_UKRZ15PN7rqGM-YT0C81nL1h48Z6Ju99dYdotj3pM/%3Fsize%3D1024/https/cdn.discordapp.com/avatars/375805687529209857/7528f050ec2521877bcfa1abe3cfbab4.webp">
+    <meta name="theme-color" content="#54338C">
+    <meta name="msapplication-navbutton-color" content="#54338C">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#54338C">
+    <title>Terms of Service & Privacy Policy - TwitchBot</title>
+    <link rel="stylesheet" href="assets/twitch.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="shortcut icon" href="https://png.icons8.com/nolan/32/ffffff/twitch.png">
+    <link rel="alternate" href="https://twitch.disgd.pw" hreflang="en-us">
+    <link rel="alternate" href="https://twitch.disgd.pw" hreflang="en-uk">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-89117598-3"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-89117598-3');
+    </script>
+    <style>
+    .rotate {
+        animation: 3s rotate infinite ease-in-out;
+    }
+
+    @keyframes rotate {
+        0% {transform: rotate(0deg);}
+        100% {transform: rotate(720deg);}
+    }
+    </style>
+</head>
+<body>
+    <!--<div class="notice">
+        TwitchBot is currently unavailable for maintenance. You can still invite the bot to your server, but commands will temporarily not work. Join the support server for more info on when TwitchBot will be online again.
+    </div>-->
+    <nav>
+        <span><a class="main" href="/">TwitchBot</a></span>
+        <span style="padding-left:10px">
+            <a href="#features">Features</a>
+            <a href="#invite">Invite</a>
+            <a href="how-to.html?utm_source=self&utm_medium=navbar">FAQ</a>
+            <a href="https://discord.me/konomi">Support</a>
+        </span>
+    </nav>
+    <header>
+        <div style="text-align:center">
+            <h1>Legal Agreements</h1>
+            <h2 style="max-width:700px;margin:1em auto">TwitchBot's Terms of Service and Privacy Policy</h2>
+            <br><br><br>
+        </div>
+        <div class="sep"></div>
+    </header>
+    <div class="tos">
+        <span style="text-align:center"><i class="material-icons rotate">refresh</i><br>Loading terms... <a href="https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true">Click here</a> if the document doesn't load.</span>
+    </div>
+    <script async defer>
+        $.get("https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true", function(data) {
+            $(".tos").html(data);
+        });
+    </script>
+    <div class="padded"></div>
+    <footer>
+        <h3 style="margin-bottom:.1em;font-size:150%">TwitchBot</h3>
+        <span style="float:right"><a href="https://discordbots.org/bot/375805687529209857" target="_blank"><img src="https://discordbots.org/api/widget/servers/375805687529209857.svg?rightcolor=6441A4&leftcolor=212121"></a></span>
+        <span style="color:rgba(255,255,255,.8);font-weight:300">Made by and copyright <a href="https://discordbots.org/user/236251438685093889">Akira#4587</a></span>
+    </footer>
+</body>
+</html>
