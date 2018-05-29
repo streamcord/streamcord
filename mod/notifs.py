@@ -15,9 +15,10 @@ class Notifs:
             await ctx.send("Type `twitch help notif` to view command usage.")
 
     @notif.command(pass_context=True)
-    @commands.has_permissions(manage_server=True)
     async def add(self, ctx, discord_channel: discord.TextChannel, *, twitch_users: str):
         """Sets up notifications for a Twitch user in the specified channel."""
+        if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
+            return await ctx.send("You need the **Manage Server** permission to do this.")
         username = twitch_users
         if "https://twitch.tv/" in twitch_users:
             username = twitch_users.strip("https://twitch.tv").strip("/")
@@ -41,17 +42,18 @@ class Notifs:
                         f.write(json.dumps(self.bot.notifs))
                         f.close()
                         if len(username) == 1:
-                            await ctx.send("You should now receive a message in {} when `{}` goes live.".format(discord_channel.mention, u))
+                            return await ctx.send("You should now receive a message in {} when `{}` goes live.".format(discord_channel.mention, u))
                 except:
-                    await ctx.send(traceback.format_exc())
+                    return await ctx.send(traceback.format_exc())
         if len(u) > 1:
-            await ctx.send("You should now receive a message in {} when those channels go live.".format(discord_channel.mention))
+            return await ctx.send("You should now receive a message in {} when those channels go live.".format(discord_channel.mention))
 
     @notif.command(aliases=["del", "delete"], pass_context=True)
-    @commands.has_permissions(manage_server=True)
     async def remove(self, ctx, discord_channel: discord.TextChannel, twitch_user: str):
         """Deletes notifications for a Twitch user in the specified channel."""
         username = twitch_user
+        if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
+            return await ctx.send("You need the **Manage Server** permission to do this.")
         if "https://twitch.tv/" in twitch_user:
             username = twitch_user.strip("https://twitch.tv").strip("/")
         try:

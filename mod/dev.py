@@ -16,10 +16,10 @@ class Dev:
 
     @commands.command(hidden=True, name="reload")
     async def _reload(self, ctx, cog):
-        if not ctx.message.author.id == 236251438685093889: return
+        if not ctx.author.id == 236251438685093889: return
         try:
-            bot.unload_extension(cog)
-            bot.load_extension(cog)
+            self.bot.unload_extension(cog)
+            self.bot.load_extension(cog)
         except Exception as e:
             await ctx.send("Failed to reload cog: `{}`".format(e))
         else:
@@ -27,7 +27,7 @@ class Dev:
 
     @commands.command(hidden=True, name="eval")
     async def _eval(self, ctx, *, code):
-        if not ctx.message.author.id == 236251438685093889: return
+        if not ctx.author.id == 236251438685093889: return
         try:
             e = eval(code)
             await ctx.send("```py\n{}\n```".format(e))

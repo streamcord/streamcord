@@ -3,6 +3,7 @@ import discord
 import aiohttp
 import json
 from . import settings
+import logging
 
 async def change_presence(bot):
     await bot.change_presence(activity=discord.Streaming(name="twitch help - {} guilds".format(len(bot.guilds)), url="https://twitch.tv/kraken"))
@@ -14,14 +15,16 @@ async def post_stats(bot):
             "server_count": len(bot.guilds)
         }
         headers = {
-            "Authorization": settings.DBL,
+            "Authorization": settings.BotList.DBL,
             "Content-Type": "application/json"
         }
-        async with session.post("https://discordbots.org/api/bots/{bot.user.id}/stats".format(bot=bot), data=payload) as r:
+        async with session.post("https://discordbots.org/api/bots/{}/stats".format(bot.user.id), data=json.dumps(payload), headers=headers) as r:
             if r.status == 200:
-                log.info("Posted server count to DBL. ({} shards/{} guilds)".format(bot.shard_count, len(bot.guilds)))
+                logging.info("Posted server count to DBL. ({} shards/{} guilds)".format(bot.shard_count, len(bot.guilds)))
             else:
-                log.error("Error posting stats to DBL.")
+                logging.error("Error posting stats to DBL.")
+                logging.error("HTTP " + str(r.status))
+                logging.error(str(await r.json()))
 
 def send_help_content():
     e = discord.Embed(color=discord.Color(0x6441A4), title="<:twitch:404633403603025921> TwitchBot Help")
@@ -48,6 +51,7 @@ def send_help_content():
     e.add_field(name="`Streamer Notifications`", value="""
 `twitch notif add <#discord_channel> <twitch_username>` - Adds a streamer notification for a streamer to the specified channel
 `twitch notif remove <#discord_channel> <twitch_username>` - Remove a streamer notification for a streamer to the specified channel
+`twitch live_check <role_name>` - Adds the specified role to users when they go live on Twitch, and then removes the role when they stop streaming
     """, inline=False)
     e.add_field(name="`Audio`", value="""
 `twitch listen <user>` - Listen to a Twitch stream in the current voice channel
@@ -59,7 +63,7 @@ def send_help_content():
 `twitch fortnite <pc/psn/xbl> <player>` - Shows Fortnite player stats
 `twitch rl <pc/psn/xbl> <player>` - Shows Rocket League player stats
     """)
-    e.add_field(name="`Links`", value="Discord Server: [discord.me/konomi](https://discord.me/konomi)\nWebsite: [twitch.disgd.pw](https://twitch.disgd.pw)\n**Upvote TwitchBot:** [discordbots.org](https://discordbots.org/bot/375805687529209857/vote)\n**Keep TwitchBot Alive:** [paypal.me/akireee](https://paypal.me/akireee)")
+    e.add_field(name="`Links`", value="Discord Server: [discord.me/konomi](https://discord.me/konomi)\nWebsite: [twitch.disgd.pw](https://twitch.disgd.pw)\n**Upvote TwitchBot:** [discordbots.org](https://discordbots.org/bot/375805687529209857/vote)\n**Donate to TwitchBot:** [paypal.me/akireee](https://paypal.me/akireee)")
     e.set_footer(text="""
 TwitchBot is not affiliated or endorsed by Discord, Inc. or Twitch Interactive, Inc.
     """)
