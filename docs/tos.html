@@ -61,11 +61,9 @@
         </div>
         <div class="sep"></div>
     </header>
-    <iframe>
-        <div class="tos">
-            <span style="text-align:center"><i class="material-icons rotate">refresh</i><br>Loading terms... <a href="https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true">Click here</a> if the document doesn't load.</span>
-        </div>
-    </iframe>
+    <div class="tos">
+        <span style="text-align:center"><i class="material-icons rotate">refresh</i><br>Loading terms... <a href="https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true">Click here</a> if the document doesn't load.</span>
+    </div>
     <script async defer>
         $.get("https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true", function(data) {
             $(".tos").html(data);
