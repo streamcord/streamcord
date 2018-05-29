@@ -30,7 +30,10 @@
       gtag('config', 'UA-89117598-3');
     </script>
 </head>
-<body>
+<body onload="$('.indeterminate').css('display', 'none')">
+    <div class="progress">
+        <div class="indeterminate"></div>
+    </div>
     <!--<div class="notice">
         TwitchBot is currently unavailable for maintenance. You can still invite the bot to your server, but commands will temporarily not work. Join the support server for more info on when TwitchBot will be online again.
     </div>-->

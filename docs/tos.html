@@ -31,9 +31,8 @@
       gtag('config', 'UA-89117598-3');
     </script>
     <style>
-    .rotate {
-        animation: 3s rotate infinite ease-in-out;
-    }
+    .rotate {animation: 3s rotate infinite ease-in-out;}
+    .tos {max-width:700px;margin:auto;color:white !important;}
 
     @keyframes rotate {
         0% {transform: rotate(0deg);}
@@ -48,8 +47,8 @@
     <nav>
         <span><a class="main" href="/">TwitchBot</a></span>
         <span style="padding-left:10px">
-            <a href="#features">Features</a>
-            <a href="#invite">Invite</a>
+            <a href="/#features">Features</a>
+            <a href="/#invite">Invite</a>
             <a href="how-to.html?utm_source=self&utm_medium=navbar">FAQ</a>
             <a href="https://discord.me/konomi">Support</a>
         </span>
@@ -62,9 +61,11 @@
         </div>
         <div class="sep"></div>
     </header>
-    <div class="tos">
-        <span style="text-align:center"><i class="material-icons rotate">refresh</i><br>Loading terms... <a href="https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true">Click here</a> if the document doesn't load.</span>
-    </div>
+    <iframe>
+        <div class="tos">
+            <span style="text-align:center"><i class="material-icons rotate">refresh</i><br>Loading terms... <a href="https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true">Click here</a> if the document doesn't load.</span>
+        </div>
+    </iframe>
     <script async defer>
         $.get("https://docs.google.com/document/d/e/2PACX-1vSw2zfrfJqLf-YA2JSKkADJHq1xwr8CC3_Fp_4Ey_3wXB4IdInwXCk3pA_Nd_ms6CcxAjOPfTR7TX15/pub?embedded=true", function(data) {
             $(".tos").html(data);
