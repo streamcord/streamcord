@@ -159,6 +159,10 @@ header .button {
     letter-spacing: .3px;
 }
 
+.new.coming-soon {
+    background-color: #3F51B5;
+}
+
 code {
     padding: 2px;
     font-family: 'Inconsolata', monospace;
