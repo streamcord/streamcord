@@ -5,6 +5,7 @@ import json
 import os, sys
 import time
 import aiohttp
+import websockets, ssl
 
 from utils import presence
 from utils import settings
@@ -12,7 +13,7 @@ from utils import settings
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
 
-modules = ["mod.general", "mod.users", "mod.games", "mod.streams", "mod.audio", "mod.notifs", "mod.stats", "mod.dev", "mod.clips", "mod.live_check", "mod.perspective"]
+modules = ["cogs.general", "cogs.users", "cogs.games", "cogs.streams", "cogs.audio", "cogs.notifs", "cogs.stats", "cogs.dev", "cogs.clips", "cogs.live_check", "cogs.moderation"]
 if settings.BETA:
     prefix = ["twbeta ", "Twbeta "]
 else:
@@ -45,6 +46,22 @@ async def on_ready():
     await presence.change_presence(bot)
     if not settings.BETA:
         await presence.post_stats(bot)
+    livecheck = list(bot.livecheck.keys()) # Copy so we don't get 'dictionary changed size during iteration'
+    for guild in livecheck:
+        g = bot.get_guild(int(guild))
+        if g is None:
+            del bot.livecheck[guild]
+        else:
+            role = discord.utils.find(lambda r: r.id == bot.livecheck[str(g.id)], g.roles)
+            for m in filter(lambda m: isinstance(m.activity, discord.Streaming), g.members):
+                if not m.bot:
+                    log.info("Adding streamer role to {before.id} in {before.guild.id}".format(before=m))
+                    await m.add_roles(role, reason="User went live on Twitch")
+            for m in filter(lambda m: discord.utils.get(m.roles, id=guild) is not None, g.members):
+                if not isinstance(m.activity, discord.Streaming):
+                    if not m.bot:
+                        log.info("Removing streamer role from {before.id} in {before.guild.id}".format(before=m))
+                        await m.remove_roles(role, reason="User no longer live on Twitch")
 
 @bot.event
 async def on_guild_join(guild):
@@ -66,16 +83,21 @@ async def on_command(ctx):
 
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        pass
-    elif isinstance(error, discord.Forbidden):
+    if isinstance(error, commands.CommandNotFound) or isinstance(error, discord.Forbidden):
         pass
     elif isinstance(error, commands.NoPrivateMessage):
         await ctx.send("This command can't be used in private messages.")
     elif isinstance(error, commands.CheckFailure):
         await ctx.send("You don't have permission to run this command.")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("You're missing the '{}' argument.".format(error.param))
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send("You can run this command in {} seconds.".format(round(error.retry_after, 1)))
+    elif isinstance(error, commands.CommandInvokeError):
+        log.error(str(error.original))
+        e = discord.Embed(color=discord.Color.red(), title="An error occurred")
+        e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}\n```".format(error.original)
+        await ctx.send(embed=e)
     else:
         log.error(str(error))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
@@ -109,9 +131,9 @@ async def on_message(message):
                     log.error(str(response))
                     return
                 score = response["attributeScores"]["SEVERE_TOXICITY"]["summaryScore"]["value"]
-                log.debug("Evaluated message from {message.author.id} -> \"{message.clean_content}\" (score: {score})".format(message=message, score=score * 100))
+                log.info("Evaluated message from {message.author.id} -> \"{message.clean_content}\" (score: {score})".format(message=message, score=score * 100))
                 if score * 100 >= bot.perspective[str(message.guild.id)]:
-                    log.debug("detected toxic comment")
+                    log.info("detected toxic comment")
                     await message.delete()
                     await message.channel.send("{}, your message was deleted because it scored higher than the server's maximum toxicity range. (Score: {}/{})".format(message.author.name, round(score * 100, 1), bot.perspective[str(message.guild.id)]))
 
@@ -121,20 +143,21 @@ async def on_member_update(before, after):
         return None
     elif before.bot:
         return None
-    elif bot.livecheck.get(after.guild.id) is None:
+    elif bot.livecheck.get(str(after.guild.id)) is None:
         return None
+    log.debug("member update: " + str(after))
     before_streaming = isinstance(before.activity, discord.Streaming)
     after_streaming = isinstance(after.activity, discord.Streaming)
-    role = discord.utils.find(lambda r: r.id == bot.livecheck[after.guild.id], after.guild.roles)
+    log.debug(str(before_streaming) + " -> " + str(after_streaming))
+    role = discord.utils.find(lambda r: r.id == bot.livecheck[str(after.guild.id)], after.guild.roles)
     if role is None:
-        del bot.livecheck[after.guild.id]
+        del bot.livecheck[str(after.guild.id)]
     if before_streaming != after_streaming:
-        log.debug("Adding streamer role to {before.id} in {before.guild.id}".format(before))
-    elif (not before_streaming) and after_streaming:
+        log.info("Modifying streamer role for {before.id} in {before.guild.id}".format(before=before))
+    if (not before_streaming) and after_streaming:
         await after.add_roles(role, reason="User went live on Twitch")
-    elif before_streaming and (not after_streaming):
+    if before_streaming and (not after_streaming):
         await after.remove_roles(role, reason="User no longer live on Twitch")
-
 
 try:
     if settings.BETA:

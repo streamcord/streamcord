@@ -1,6 +1,6 @@
 from discord.ext import commands
 import discord, asyncio
-from utils.functions import OWAPI_REQUEST, TRN_FORTNITE_REQUEST, RLS_REQUEST
+from utils.functions import OWAPI_REQUEST, TRN_FORTNITE_REQUEST, RLS_REQUEST, FORMAT_OWAPI_USER
 import traceback
 
 class GameStats:
@@ -16,39 +16,39 @@ class GameStats:
             "grandmaster": "<:ow_grandmaster:338113846503931905>"
         }
 
-    @commands.command(pass_context=True, aliases=["ow"])
+    @commands.command(aliases=["ow"])
     @commands.cooldown(rate=1, per=2)
     async def overwatch(self, ctx, platform, *, username):
         await ctx.trigger_typing()
-        username = username.replace('#', '-').replace(' ', '_')
+        username = FORMAT_OWAPI_USER(username)
         if platform == "pc":
             if not '-' in username:
                 await ctx.send("Please enter your battletag in a format of `name#id`.")
                 return
         elif not platform in ["pc", "psn", "xbl"]:
-            await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
-        else:
-            r = OWAPI_REQUEST("/u/{}/stats?platform={}".format(username, platform))
-            if r.status_code == 404 or (r.json().get('any') is None and r.json().get('us') is None and r.json().get('eu') is None and r.json().get('kr') is None):
-                await ctx.send("Player could not be found or no competitive stats exist for this season.")
-                return
-            elif r.status_code != 200:
-                await ctx.send("An error occurred: {0.status_code}".format(r))
-                return
-            res = r.json()['any'] or r.json()['us'] or r.json()['eu'] or r.json()['kr']
-            stats = {'overall': res['stats']['competitive']['overall_stats'], 'game': res['stats']['competitive']['game_stats']}
-            e = discord.Embed(color=0x2196F3, title="Overwatch Stats (Competitive)")
-            e.set_author(name=username.replace("-", "#").replace('_', ' '), icon_url=stats['overall']['avatar'], url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
-            e.set_thumbnail(url=stats['overall']['avatar'])
-            e.description = "{} hours played in {} games".format(stats['game']['time_played'], round(stats['game']['games_played']))
-            e.add_field(name="Competitive Rank", value="{} {}".format(self.emoji[stats['overall']['tier']], stats['overall']['comprank']))
-            e.add_field(name="Level", value=str((stats['overall']['prestige'] * 100) + stats['overall']['level']))
-            e.add_field(name="General", value="• {healing_done} healing done\n• {cards} cards\n• best multikill: {multikill_best} players\n• {damage_done} damage inflicted".format(**stats['game']))
-            e.add_field(name="Matches Played", value="• {total} total\n• {win} wins\n• {loss} losses\n• {wr}% win rate".format(total=stats['overall']['games'], win=stats['overall']['wins'], loss=stats['overall']['losses'], wr=stats['overall']['win_rate']))
-            e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
-            e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))
-            e.set_footer(text="Powered by owapi.net")
-            await ctx.send(embed=e)
+            return await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
+        r = OWAPI_REQUEST("/u/{}/stats?platform={}".format(username, platform))
+        await ctx.trigger_typing()
+        if r.status_code == 404 or (r.json().get('any') is None and r.json().get('us') is None and r.json().get('eu') is None and r.json().get('kr') is None):
+            await ctx.send("Player could not be found or no competitive stats exist for this season.")
+            return
+        elif r.status_code != 200:
+            await ctx.send("An error occurred: {0.status_code}".format(r))
+            return
+        res = r.json()['any'] or r.json()['us'] or r.json()['eu'] or r.json()['kr']
+        stats = {'overall': res['stats']['competitive']['overall_stats'], 'game': res['stats']['competitive']['game_stats']}
+        e = discord.Embed(color=0x2196F3, title="Overwatch Stats (Competitive)")
+        e.set_author(name=username.replace("-", "#").replace('_', ' '), icon_url=stats['overall']['avatar'], url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
+        e.set_thumbnail(url=stats['overall']['avatar'])
+        e.description = "{} hours played in {} games".format(stats['game']['time_played'], round(stats['game']['games_played']))
+        e.add_field(name="Competitive Rank", value="{} {}".format(self.emoji[stats['overall']['tier']], stats['overall']['comprank']))
+        e.add_field(name="Level", value=str((stats['overall']['prestige'] * 100) + stats['overall']['level']))
+        e.add_field(name="General", value="• {healing_done} healing done\n• {cards} cards\n• best multikill: {multikill_best} players\n• {damage_done} damage inflicted".format(**stats['game']))
+        e.add_field(name="Matches Played", value="• {total} total\n• {win} wins\n• {loss} losses\n• {wr}% win rate".format(total=stats['overall']['games'], win=stats['overall']['wins'], loss=stats['overall']['losses'], wr=stats['overall']['win_rate']))
+        e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
+        e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))
+        e.set_footer(text="Powered by owapi.net")
+        await ctx.send(embed=e)
 
     @commands.command(pass_context=True, aliases=["fn"])
     @commands.cooldown(rate=1, per=2)

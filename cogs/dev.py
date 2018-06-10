@@ -2,6 +2,7 @@ from discord.ext import commands
 from utils import settings
 import discord
 import time
+import traceback
 import json
 
 class Dev:
@@ -57,14 +58,28 @@ class Dev:
             m += "**{}**: {} ({})\n".format(r, self.bot.ratelimits[r], time.strftime('%m/%d/%Y %H:%M.%S', time.localtime(self.bot.ratelimits[r])))
         await ctx.send(m)
 
-    @commands.command(pass_context=True)
-    @commands.check(owner_only)
-    async def send_raw_embed(self, ctx, *, jsonstuff):
-        token = settings.TOKEN
-        if settings.BETA:
-            token = settings.BETA_TOKEN
-        r = requests.post("https://discordapp.com/api/channels/{}/messages".format(channel_id), headers={"Authorization": "Bot " + token, "Content-Type": "multipart/form-data"}, files=dict(content=jsonstuff))
-        await ctx.send("```\nPOST {0.url} {0.status_code}\n\n{1}\n```".format(r, r.json()))
+    @commands.command()
+    async def shardinfo(self, ctx):
+        try:
+            stuff = ""
+            servers = {}
+            members = {}
+            for guild in self.bot.guilds:
+                shard = str(guild.shard_id)
+                if servers.get(str(shard)) is None:
+                    servers[shard] = [guild]
+                    members[shard] = len(guild.members)
+                else:
+                    servers[shard].append(guild)
+                    members[shard] += len(guild.members)
+            for s in range(0, self.bot.shard_count):
+                pre = "  "
+                if ctx.guild.shard_id == s:
+                    pre = "->"
+                stuff += "{p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=dict(self.bot.latencies)[int(s)] * 1000)
+            await ctx.send("```prolog\n{}```".format(stuff))
+        except:
+            await ctx.send(traceback.format_exc())
 
 def setup(bot):
     bot.add_cog(Dev(bot))

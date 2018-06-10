@@ -15,7 +15,7 @@ class General:
         u = GET_UPTIME(self.bot.uptime)
         e.add_field(name="Uptime", value=u, inline=False)
         e.add_field(name="Usage", value="**•** {} servers\n**•** {} users\n**•** {} commands run".format(len(self.bot.guilds), len(list(self.bot.get_all_members())), self.bot.cmds), inline=False)
-        e.add_field(name="Shard Info", value="**•** Current shard: {}\n**•** Shard latency: {}ms\n**•** Total shards: {}".format(self.bot.shard_id, round(self.bot.latency*1000), self.bot.shard_count))
+        e.add_field(name="Shard Info", value="**•** Current shard: {}\n**•** Shard latency: {}ms\n**•** Total shards: {}".format(ctx.guild.shard_id, round(self.bot.latency*1000), self.bot.shard_count))
         e.add_field(name="Website", value="https://twitch.disgd.pw", inline=False)
         e.add_field(name="Discord", value="https://discord.me/konomi", inline=False)
         e.add_field(name="Upvote", value="https://discordbots.org/bot/375805687529209857/vote", inline=False)
