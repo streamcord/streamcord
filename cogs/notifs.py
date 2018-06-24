@@ -4,6 +4,8 @@ from discord.ext import commands
 from utils.functions import TWAPI_REQUEST, STREAM_REQUEST, SPLIT_EVERY
 from utils import settings
 import aiohttp
+import os
+import json
 
 class Notifs:
     def __init__(self, bot):
