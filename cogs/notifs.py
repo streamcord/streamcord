@@ -3,8 +3,6 @@ import traceback
 from discord.ext import commands
 from utils.functions import TWAPI_REQUEST, STREAM_REQUEST, SPLIT_EVERY
 from utils import settings
-import json
-import os
 import aiohttp
 
 class Notifs:
@@ -77,50 +75,5 @@ class Notifs:
 #     }
 # }
 
-class StreamNotifs:
-    def __init__(self, bot):
-        self.bot = bot
-        self.game_cache = {}
-
-    async def poll(self):
-        await bot.wait_until_ready()
-        while not bot.is_closed():
-            ids_to_fetch = SPLIT_EVERY(100, self.bot.notifs)
-            for split in ids_to_fetch:
-                r = STREAM_REQUEST("https://api.twitch.tv/helix/streams?user_id=" + list(split.keys()).join("&user_id="))
-                if r.status_code > 299:
-                    TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r.status_code, r.json()))
-                    continue
-                for stream in r.json()['data']:
-                    meta = self.bot.notifs[stream['user_id']]
-                    if stream['type'] == 'live':
-                        for channel_id in meta.keys():
-                            obj = meta[channel_id]
-                            if not obj['last_stream_id'] == stream['id']:
-                                self.bot.notifs[stream['user_id']][channel_id]['last_stream_id'] = stream['id']
-                                e = discord.Embed(color=discord.Color(0x6441A4))
-                                e.title = stream['title']
-                                game = "null"
-                                if self.game_cache.get(stream['game_id']) is None:
-                                    r2 = STREAM_REQUEST("https://api.twitch.tv/helix/games?id=" + stream['game_id'])
-                                    if r2.status_code > 299:
-                                        TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r2.status_code, r2.json()))
-                                    else:
-                                        game = r2.json()['data'][0]['name']
-                                        self.game_cache[stream['game_id']] = game
-                                else:
-                                    game = self.game_cache[stream['game_id']]
-                                e.description = "Playing {} for {} viewers".format(game, stream['viewer_count'])
-                                e.set_image(url=stream['thumbnail_url'].format(width=1920, height=1080))
-                                try:
-                                    await self.bot.get_channel(channel_id).send(obj['message'], embed=e)
-                                    await asyncio.sleep(1)
-                                except discord.Forbidden:
-                                    pass
-                                except:
-                                    TRIGGER_WEBHOOK("Failed to send message: ```\n{}\n```".format(traceback.format_exc()))
-            await asyncio.sleep(240)
-
 def setup(bot):
     bot.add_cog(Notifs(bot))
-    bot.loop.create_task(StreamNotifs(bot).poll)
