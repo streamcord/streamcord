@@ -8,7 +8,10 @@ body {
     color: white;
     text-align: center;
     overflow-x: hidden;
+    scroll-behavior: smooth;
 }
+
+p {opacity: .8;}
 
 nav {
     background: #54338C;
@@ -17,7 +20,7 @@ nav {
 }
 
 nav a:not(.main) {
-    font-size: .9em;
+    font-size: .875em;
     color: rgba(255,255,255,.7);
     padding: 0 10px;
 }
@@ -207,6 +210,31 @@ footer {
     color: #333;
     background-color: white;
     padding: 7.5px 9px 9px;
+}
+
+.logged-in-ctx {
+    padding: .1rem;
+    background-color: rgb(35, 39, 42);
+    z-index: 10001;
+    box-shadow: 0 14px 28px rgba(0,0,0,0.25), 0 10px 10px rgba(0,0,0,0.22);
+    position: absolute;
+    width: 100px;
+    text-align: left;
+}
+
+.logged-in-ctx .sep {
+    height: 1px;
+    background-color: rgba(255,255,255,.2);
+    margin: 0 .5rem;
+}
+
+.logged-in-ctx a {
+    margin: .5rem;
+    padding: 0 !important;
+    display: block;
+    color: white;
+    opacity: .5;
+    font-size: .8em;
 }
 
 *[mobile-only] {
