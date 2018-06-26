@@ -3,11 +3,18 @@ from utils import settings
 import discord
 import time
 import traceback
-import json
+import json, io
+import textwrap
+from contextlib import redirect_stdout
 
 class Dev:
     def __init__(self, bot):
         self.bot = bot
+
+    def cleanup_code(self, content):
+        if content.startswith('```') and content.endswith('```'):
+            return '\n'.join(content.split('\n')[1:-1])
+        return content.strip('` \n')
 
     def owner_only(ctx):
         return ctx.message.author.id == 236251438685093889
@@ -26,14 +33,51 @@ class Dev:
         else:
             await ctx.send("Successfully reloaded cog.")
 
-    @commands.command(hidden=True, name="eval")
-    async def _eval(self, ctx, *, code):
+    @commands.command(name="eval")
+    async def _eval(self, ctx, *, body: str):
         if not ctx.author.id == 236251438685093889: return
+
+        env = {
+            'bot': self.bot,
+            'ctx': ctx,
+            'channel': ctx.channel,
+            'author': ctx.author,
+            'guild': ctx.guild,
+            'message': ctx.message,
+            'self': self,
+        }
+
+        env.update(globals())
+
+        body = self.cleanup_code(body)
+        stdout = io.StringIO()
+
+        to_compile = f'async def func():\n{textwrap.indent(body, "  ")}'
+
         try:
-            e = eval(code)
-            await ctx.send("```py\n{}\n```".format(e))
+            exec(to_compile, env)
         except Exception as e:
-            await ctx.send("```py\n{}: {}\n```".format(type(e).__name__, e))
+            return await ctx.send(f'```py\n{e.__class__.__name__}: {e}\n```')
+
+        func = env['func']
+        try:
+            with redirect_stdout(stdout):
+                ret = await func()
+        except Exception as e:
+            value = stdout.getvalue()
+            await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
+        else:
+            value = stdout.getvalue()
+            try:
+                await ctx.message.add_reaction('✅')
+            except:
+                pass
+
+            if ret is None:
+                if value:
+                    await ctx.send(f'```py\n{value}\n```')
+            else:
+                await ctx.send(f'```py\n{value}{ret}\n```')
 
     @commands.command()
     @commands.check(owner_only)
@@ -61,7 +105,7 @@ class Dev:
     @commands.command()
     async def shardinfo(self, ctx):
         try:
-            stuff = ""
+            stuff = " All : Guilds: {g} Members: {m} Latency: {l}ms\n".format(g=len(self.bot.guilds), m=len(list(self.bot.get_all_members())), l=round(self.bot.latency*1000, 2))
             servers = {}
             members = {}
             for guild in self.bot.guilds:
@@ -76,7 +120,7 @@ class Dev:
                 pre = "  "
                 if ctx.guild.shard_id == s:
                     pre = "->"
-                stuff += "{p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=dict(self.bot.latencies)[int(s)] * 1000)
+                stuff += "{p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=round(dict(self.bot.latencies)[int(s)] * 1000, 2))
             await ctx.send("```prolog\n{}```".format(stuff))
         except:
             await ctx.send(traceback.format_exc())

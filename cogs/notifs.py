@@ -1,11 +1,13 @@
 import discord
-import traceback
+import traceback, logging
 from discord.ext import commands
 from utils.functions import TWAPI_REQUEST, STREAM_REQUEST, SPLIT_EVERY
 from utils import settings
-import aiohttp
-import os
 import json
+import os
+import aiohttp
+
+log = logging.getLogger("bot.notifs")
 
 class Notifs:
     def __init__(self, bot):
@@ -14,7 +16,7 @@ class Notifs:
     @commands.group(pass_context=True)
     async def notif(self, ctx):
         if ctx.invoked_subcommand is None:
-            await ctx.send("Type `twitch help notif` to view command usage.")
+            await ctx.send("View the **`Streamer Notifications`** section under the help command to view usage.")
 
     @notif.command(pass_context=True)
     async def add(self, ctx, discord_channel: discord.TextChannel, twitch_user: str, *, msg: str = None):
@@ -31,14 +33,14 @@ class Notifs:
                 await self.bot.say("That user does not exist.")
             else:
                 if self.bot.notifs.get(s.json()['data'][0]['id']) is None:
-                    self.bot.notifs[s.json()['data'][0]['id']] = {str(discord_channel.id): {"last_stream_id": None, "message": msg or "{user} is now live on Twitch!".format(twitch_user)}}
+                    self.bot.notifs[s.json()['data'][0]['id']] = {str(discord_channel.id): {"last_stream_id": None, "message": msg or "{} is now live on Twitch!".format(twitch_user)}}
                 else:
-                    self.bot.notifs[s.json()['data'][0]['id']][str(discord_channel.id)] = {"last_stream_id": None, "message": msg or "{user} is now live on Twitch!".format(twitch_user)}
+                    self.bot.notifs[s.json()['data'][0]['id']][str(discord_channel.id)] = {"last_stream_id": None, "message": msg or "{} is now live on Twitch!".format(twitch_user)}
                 f = open(os.path.join(os.getcwd(), 'data', 'notifs.json'), 'w')
                 f.write(json.dumps(self.bot.notifs))
                 f.close()
                 return await ctx.send("You should now receive a message in {} when `{}` goes live.".format(discord_channel.mention, username))
-        except KeyError:
+        except KeyError as e:
             return await ctx.send("That Twitch user doesn't exist. Make sure that you're not putting <> around the name, and that you're not @mentioning a Discord user.")
         except:
             return await ctx.send(traceback.format_exc())
@@ -68,14 +70,6 @@ class Notifs:
             await ctx.send(traceback.format_exc())
         else:
             await ctx.send("You won't get any notifications in {} when `{}` goes live.".format(discord_channel.mention, username))
-
-# example streamer object:
-# {streamer_id:
-#     {discord.TextChannel.id:
-#         {"last_stream_id": stream_id,
-#         "message": message}
-#     }
-# }
 
 def setup(bot):
     bot.add_cog(Notifs(bot))

@@ -4,6 +4,7 @@ from utils.functions import TWAPI_REQUEST
 from urllib.parse import urlencode
 from random import choice
 import asyncio
+import logging
 
 class Clips:
     def __init__(self, bot):

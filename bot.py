@@ -5,14 +5,9 @@ import json
 import os, sys
 import time
 import aiohttp
-import websockets, ssl
-from quart import Quart, request
 
 from utils import presence
 from utils import settings
-
-global app
-app = Quart(__name__)
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
@@ -97,6 +92,8 @@ async def on_command_error(ctx, error):
         await ctx.send("You're missing the '{}' argument.".format(error.param))
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send("You can run this command in {} seconds.".format(round(error.retry_after, 1)))
+    elif isinstance(error, KeyError) or isinstance(error, IndexError):
+        await ctx.send("No results found.")
     elif isinstance(error, commands.CommandInvokeError):
         log.error(str(error.original))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
@@ -162,41 +159,6 @@ async def on_member_update(before, after):
         await after.add_roles(role, reason="User went live on Twitch")
     if before_streaming and (not after_streaming):
         await after.remove_roles(role, reason="User no longer live on Twitch")
-
-game_cache = {}
-
-@app.route('/webhook')
-async def webhook():
-    jsond = request.json
-    slist = jsond['data']
-    for stream in slist:
-        if bot.notifs.get(str(stream['user_id'])):
-            meta = bot.notifs[stream['user_id']]
-            if stream['type'] == 'live':
-                    for channel_id in meta.keys():
-                        obj = meta[channel_id]
-                        if not obj['last_stream_id'] == stream['id']:
-                            bot.notifs[stream['user_id']][channel_id]['last_stream_id'] = stream['id']
-                            e = discord.Embed(color=discord.Color(0x6441A4))
-                            e.title = stream['title']
-                            game = "null"
-                            if game_cache.get(stream['game_id']) is None:
-                                r2 = STREAM_REQUEST("https://api.twitch.tv/helix/games?id=" + stream['game_id'])
-                                if r2.status_code > 299:
-                                    TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r2.status_code, r2.json()))
-                                else:
-                                    game = r2.json()['data'][0]['name']
-                                    game_cache[stream['game_id']] = game
-                            else:
-                                game = game_cache[stream['game_id']]
-                            e.description = "Playing {} for {} viewers".format(game, stream['viewer_count'])
-                            e.set_image(url=stream['thumbnail_url'].format(width=1920, height=1080))
-                            try:
-                                await bot.get_channel(channel_id).send(obj['message'], embed=e)
-                            except discord.Forbidden:
-                                pass
-                            except:
-                                TRIGGER_WEBHOOK("Failed to send message: ```\n{}\n```".format(traceback.format_exc()))
 
 try:
     if settings.BETA:

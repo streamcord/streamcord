@@ -1,6 +1,7 @@
 from discord.ext import commands
 import discord
 from utils.functions import TWAPI_REQUEST
+import logging
 
 # NOTE: This cog uses the v5 version of the Twitch API.
 

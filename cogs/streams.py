@@ -15,7 +15,7 @@ class Streams:
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
         r.raise_for_status()
         if r.json()["data"] == []:
-            await self.bot.say("That user doesn't exist or is not online.")
+            await ctx.send("That user doesn't exist or is not online. Make sure you're only entering the user's name and not anything extra, like `()` or `<>`.")
         else:
             r = r.json()["data"][0]
             u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + user)
