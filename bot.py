@@ -5,7 +5,6 @@ import json
 import os, sys
 import time
 import aiohttp
-import websockets, ssl
 
 from utils import presence
 from utils import settings
@@ -93,6 +92,8 @@ async def on_command_error(ctx, error):
         await ctx.send("You're missing the '{}' argument.".format(error.param))
     elif isinstance(error, commands.CommandOnCooldown):
         await ctx.send("You can run this command in {} seconds.".format(round(error.retry_after, 1)))
+    elif isinstance(error, KeyError) or isinstance(error, IndexError):
+        await ctx.send("No results found.")
     elif isinstance(error, commands.CommandInvokeError):
         log.error(str(error.original))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
