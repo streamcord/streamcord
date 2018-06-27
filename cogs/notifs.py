@@ -119,6 +119,7 @@ class StreamNotifs:
                                     pass
                                 except:
                                     TRIGGER_WEBHOOK("Failed to send message: ```\n{}\n```".format(traceback.format_exc()))
+                    await asyncio.sleep(2)
             await asyncio.sleep(240)
 
 def setup(bot):
