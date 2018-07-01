@@ -2,11 +2,17 @@ from discord.ext import commands
 import discord
 import time
 import requests
+import sys
 from utils.functions import GET_UPTIME
+from utils import presence
 
 class General:
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.command(aliases=["commands"])
+    async def cmds(self, ctx):
+        await ctx.send(embed=presence.send_commands_content())
 
     @commands.command(pass_context=True)
     async def info(self, ctx):
@@ -14,6 +20,7 @@ class General:
         e = discord.Embed(color=discord.Color(0x6441A4), title="<:twitch:404633403603025921> TwitchBot Stats")
         u = GET_UPTIME(self.bot.uptime)
         e.add_field(name="Uptime", value=u, inline=False)
+        e.add_field(name="Version", value="Python {}\ndiscord.py {}".format(sys.version.split()[0], discord.__version__))
         e.add_field(name="Usage", value="**•** {} servers\n**•** {} users\n**•** {} commands run\n**•** {} live checks\n**•** {} streamer notifications".format(len(self.bot.guilds), len(list(self.bot.get_all_members())), self.bot.cmds, len(self.bot.livecheck), len(self.bot.notifs)), inline=False)
         e.add_field(name="Shard Info", value="**•** Current shard: {} (real: {})\n**•** Shard latency: {}ms\n**•** Total shards: {}".format(ctx.guild.shard_id + 1, ctx.guild.shard_id, round(self.bot.latency*1000), self.bot.shard_count))
         e.add_field(name="Website", value="https://twitch.disgd.pw", inline=False)

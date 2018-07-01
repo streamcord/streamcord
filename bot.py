@@ -8,6 +8,7 @@ import aiohttp
 
 from utils import presence
 from utils import settings
+from utils.functions import STREAM_REQUEST, SPLIT_EVERY, TRIGGER_WEBHOOK
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
@@ -16,7 +17,7 @@ modules = ["cogs.general", "cogs.users", "cogs.games", "cogs.streams", "cogs.aud
 if settings.BETA:
     prefix = ["twbeta ", "Twbeta "]
 else:
-    prefix = ["twitch ", "Twitch "]
+    prefix = ["twitch ", "Twitch ", "!twitch ", "?twitch "]
 
 bot = commands.AutoShardedBot(command_prefix=prefix)
 bot.remove_command('help')
@@ -26,6 +27,7 @@ bot.perspective = json.loads(open(os.path.join(os.getcwd(), 'data', 'perspective
 bot.cmds = 0
 bot.ratelimits = {"twitch": 0, "fortnite": 0, "rocketleague": 0, "pubg": 0}
 bot.vc = {}
+bot.game_cache = {}
 bot.uptime = 0
 
 if __name__ == "__main__":
@@ -54,13 +56,19 @@ async def on_ready():
             role = discord.utils.find(lambda r: r.id == bot.livecheck[str(g.id)], g.roles)
             for m in filter(lambda m: isinstance(m.activity, discord.Streaming), g.members):
                 if not m.bot:
-                    log.info("Adding streamer role to {before.id} in {before.guild.id}".format(before=m))
-                    await m.add_roles(role, reason="User went live on Twitch")
+                    try:
+                        log.info("Adding streamer role to {before.id} in {before.guild.id}".format(before=m))
+                        await m.add_roles(role, reason="User went live on Twitch")
+                    except discord.Forbidden:
+                        log.info("[live check] forbidden")
             for m in filter(lambda m: discord.utils.get(m.roles, id=guild) is not None, g.members):
                 if not isinstance(m.activity, discord.Streaming):
                     if not m.bot:
-                        log.info("Removing streamer role from {before.id} in {before.guild.id}".format(before=m))
-                        await m.remove_roles(role, reason="User no longer live on Twitch")
+                        try:
+                            log.info("Removing streamer role from {before.id} in {before.guild.id}".format(before=m))
+                            await m.remove_roles(role, reason="User no longer live on Twitch")
+                        except discord.Forbidden:
+                            log.info("[live check] forbidden")
 
 @bot.event
 async def on_guild_join(guild):
@@ -84,6 +92,8 @@ async def on_command(ctx):
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound) or isinstance(error, discord.Forbidden):
         pass
+    elif isinstance(error, discord.NotFound):
+        await ctx.send("That Discord channel was not found. Please make sure you're not putting <> around it and that you're `#mention`ing it.")
     elif isinstance(error, commands.NoPrivateMessage):
         await ctx.send("This command can't be used in private messages.")
     elif isinstance(error, commands.CheckFailure):
@@ -99,19 +109,22 @@ async def on_command_error(ctx, error):
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
         e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}\n```".format(error.original)
         await ctx.send(embed=e)
+        TRIGGER_WEBHOOK("error in `{}`: `{}`".format(ctx.message.content, error.original))
     else:
         log.error(str(error))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
-        e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}\n```".format(error)
+        e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}: {}\n```".format(type(error).__name__, error)
         await ctx.send(embed=e)
+        TRIGGER_WEBHOOK("error in `{}`: `{}: {}`".format(ctx.message.content, type(error).__name__, error))
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
     elif message.content.lower().startswith(prefix[0]):
-        if message.content.lower() == prefix[0] + "help":
-            return await message.channel.send(embed=presence.send_help_content())
+        if message.content.lower() in list(map(lambda t: t + "help", prefix)):
+            # === Send help command === #
+            return await message.channel.send(embed=presence.send_help_content(message, bot))
         else:
             await bot.process_commands(message)
     elif message.guild is None:
@@ -160,6 +173,76 @@ async def on_member_update(before, after):
     if before_streaming and (not after_streaming):
         await after.remove_roles(role, reason="User no longer live on Twitch")
 
+# example streamer object:
+ # {streamer_id:
+ #     {discord.TextChannel.id:
+ #         {"last_stream_id": stream_id,
+ #         "message": message}
+ #     }
+ # }
+
+async def poll():
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        log.info("[Notifs] iter stream notifications")
+        notif = dict(bot.notifs).copy()
+        ids_to_fetch = SPLIT_EVERY(100, notif)
+        for split in ids_to_fetch:
+            if len(split) < 1:
+                continue
+            r = await STREAM_REQUEST(bot, "/streams?user_id=" + "&user_id=".join(list(split.keys())))
+            if r.status_code > 299:
+                TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r.status_code, r.json()))
+                continue
+            for stream in r.json()['data']:
+                meta = dict(bot.notifs[stream['user_id']]).copy()
+                if stream['type'] == 'live':
+                    log.info('{} is live'.format(stream['user_id']))
+                    if len(list(meta.keys())) < 1:
+                        del bot.notifs[stream['user_id']]
+                        logging.info('[Notifs] user is empty... deleting')
+                        continue
+                    for channel_id in meta.keys():
+                        obj = meta[channel_id]
+                        if not obj['last_stream_id'] == stream['id']:
+                            bot.notifs[stream['user_id']][channel_id]['last_stream_id'] = stream['id']
+                            e = discord.Embed(color=discord.Color(0x6441A4))
+                            e.title = stream['title']
+                            game = "null"
+                            if bot.game_cache.get(stream['game_id']) is None:
+                                r2 = await STREAM_REQUEST(bot, "/games?id=" + stream['game_id'])
+                                if r2.status_code > 299:
+                                    TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r2.status_code, r2.json()))
+                                else:
+                                    try:
+                                        game = r2.json()['data'][0]['name']
+                                    except:
+                                        game = "Unknown"
+                                    bot.game_cache[stream['game_id']] = game
+                            else:
+                                game = bot.game_cache[stream['game_id']]
+                            e.description = "Playing {} for {} viewers".format(game, stream['viewer_count'])
+                            e.set_image(url=stream['thumbnail_url'].format(width=1920, height=1080))
+                            try:
+                                channel = bot.get_channel(int(channel_id))
+                                if channel is None:
+                                    # channel doesn't exist; bot was probably kicked
+                                    del bot.notifs[stream['user_id']][channel_id]
+                                    log.info("[Notifs] Channel doesn't exist... deleting")
+                                    continue
+                                await channel.send(obj['message'], embed=e)
+                                log.info("[Notifs] Notified")
+                            except discord.Forbidden:
+                                log.info("[Notifs] Forbidden... deleting")
+                                del bot.notifs[stream['user_id']][channel_id]
+                                continue
+                            except:
+                                log.error(traceback.format_exc())
+                                TRIGGER_WEBHOOK("Failed to send message: ```\n{}\n```".format(traceback.format_exc()))
+                            await asyncio.sleep(2)
+        await asyncio.sleep(300)
+
+bot.loop.create_task(poll())
 try:
     if settings.BETA:
         bot.run(settings.BETA_TOKEN, bot=True, reconnect=True)
