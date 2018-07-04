@@ -4,6 +4,11 @@ import requests
 import time
 import logging
 
+def replace_all(text, dic):
+    for i, j in dic.iteritems():
+        text = text.replace(i, j)
+    return text
+
 def TRIGGER_WEBHOOK(msg):
     r = requests.post("https://canary.discordapp.com/api/webhooks/webhook_id/webhook_token", data={"content": msg})
     return r
@@ -24,8 +29,8 @@ def TWAPI_REQUEST(url):
     return r
 
 async def STREAM_REQUEST(bot, url):
-    if bot.ratelimits['twitch'] > time.time():
-        await asyncio.sleep(bot.ratelimits['twitch'] - time.time())
+    if float(bot.ratelimits['twitch']) > time.time():
+        await asyncio.sleep(float(bot.ratelimits['twitch']) - time.time())
     headers = {
         "Client-ID": settings.Twitch.STREAM_ID,
         "Authentication": "Bearer " + settings.Twitch.STREAM_SECRET,
@@ -34,9 +39,8 @@ async def STREAM_REQUEST(bot, url):
     }
     r = requests.get("https://api.twitch.tv/helix" + url, headers=headers)
     logging.info("GET {0.url} {0.status_code}".format(r))
-    if r.status_code == 429 or int(r.headers.get('RateLimit-Remaining')) < 2:
+    if r.status_code == 429:
         bot.ratelimits['twitch'] = r.headers.get('RateLimit-Reset')
-        raise TooManyRequestsError
     elif r.status_code != 200:
         TRIGGER_WEBHOOK("GET {0.url} {0.status_code}".format(r))
     return r
@@ -56,7 +60,7 @@ def OWAPI_REQUEST(url):
     headers = {
         "User-Agent": "TwitchBot (https://twitch.disgd.pw, v{})".format(settings.VERSION)
     }
-    r = requests.get("https://owapi.net/api/v3" + url, headers=headers)
+    r = requests.get("https://owapi.net/api/v3" + url, headers=headers, timeout=40)
     return r
 
 async def TRN_FORTNITE_REQUEST(self, url):
@@ -95,3 +99,34 @@ def GET_UPTIME(u):
     t = time.time() - u
     st = time.gmtime(t)
     return "{1} days, {0.tm_hour} hours, and {0.tm_min} minutes".format(st, st.tm_mday - 1)
+
+def SPLIT_EVERY(time, iterable):
+    items = []
+    current_item = {}
+    if len(iterable) < time + 1:
+        return [iterable]
+    for i in iterable.keys():
+        if len(current_item) > time - 1:
+            items.append(current_item)
+            current_item = {}
+        current_item[i] = iterable[i]
+    if current_item != {}:
+        items.append(current_item)
+    return items
+
+def FORMAT_OWAPI_USER(username):
+    u = username.replace("#", "-").replace(" ", "_")
+    """fmt = ""
+    for let in u:
+        for l in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-":
+            if let in l:
+                fmt += let
+    return fmt"""
+    return u
+
+def TRIGGER_WEBHOOK(msg):
+    payload = {"content": replace_all(msg, {"@everyone": "[at]everyone", "@here": "[at]here"})}
+    r = requests.post("https://canary.discordapp.com/api/webhooks/439168005981732876/LiVgbdAxojV1z-A1zFjteyH9UsAX3clZcIfcZ6AlXvI26E9ebSNYlfc2jJTCdrXqmbPX", data=payload)
+    if r.status_code > 299:
+        log.error("Webhook failed with status of " + str(r.status_code))
+    return r
