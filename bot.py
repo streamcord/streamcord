@@ -104,6 +104,9 @@ async def on_command_error(ctx, error):
         await ctx.send("You can run this command in {} seconds.".format(round(error.retry_after, 1)))
     elif isinstance(error, KeyError) or isinstance(error, IndexError):
         await ctx.send("No results found.")
+    elif isinstance(error, commands.BadArgument):
+        if "notif add" in ctx.message.content:
+            return await ctx.send("That Discord channel was not found. Please make sure you're not putting <> around it and that you're `#mention`ing it.")
     elif isinstance(error, commands.CommandInvokeError):
         log.error(str(error.original))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")

@@ -1,14 +1,20 @@
 from discord.ext import commands
 from utils.functions import TWAPI_REQUEST
-import discord
+import discord, asyncio
 import logging, traceback
+from random import choice
 
 class Streams:
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(pass_context=True)
-    async def stream(self, ctx, *, user):
+    @commands.group()
+    async def stream(self, ctx):
+        if ctx.invoked_subcommand is None:
+            await ctx.send("Type `twitch commands` to view command usage.")
+
+    @stream.command()
+    async def user(self, ctx, *, user):
         await ctx.trigger_typing()
         user = user.split('/')[-1]
         e = discord.Embed(color=discord.Color(0x6441A4))
@@ -20,9 +26,11 @@ class Streams:
             r = r.json()["data"][0]
             u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + user)
             u.raise_for_status()
+            await asyncio.sleep(1)
             u = u.json()["data"][0]
             g = TWAPI_REQUEST("https://api.twitch.tv/helix/games?id=" + r["game_id"])
             g.raise_for_status()
+            await asyncio.sleep(1)
             g = g.json()["data"][0]
             e.set_author(icon_url=u["profile_image_url"], name=u["display_name"], url="https://twitch.tv/{}".format(u["login"]))
             e.title = r["title"]
@@ -34,7 +42,7 @@ Stream Preview:
             e.set_image(url=r["thumbnail_url"].format(width="1920", height="1080"))
             await ctx.send(embed=e)
 
-    @commands.command(pass_context=True)
+    @stream.command()
     async def watch(self, ctx, *, user):
         await ctx.trigger_typing()
         user = user.split('/')[-1]
@@ -44,6 +52,25 @@ Stream Preview:
             await ctx.send("That user doesn't exist or is not online.")
         else:
             await ctx.send("**<:twitch:404633403603025921> Live on Twitch**\nhttps://twitch.tv/{}".format(user))
+
+    @stream.command()
+    @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
+    async def top(self, ctx):
+        await ctx.trigger_typing()
+        r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?first=20")
+        r.raise_for_status()
+        stream = choice(r.json()['data'])
+        u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?id=" + stream['user_id'])
+        u.raise_for_status()
+        await asyncio.sleep(1)
+        u = u.json()["data"][0]
+        g = TWAPI_REQUEST("https://api.twitch.tv/helix/games?id=" + stream["game_id"])
+        g.raise_for_status()
+        await asyncio.sleep(1)
+        g = g.json()["data"][0]
+        return await ctx.send("Check out {0} playing {1} for {2} viewers: https://twitch.tv/{0}".format(u['login'], g['name'], stream['viewer_count']))
+
+
 
 def setup(bot):
     bot.add_cog(Streams(bot))
