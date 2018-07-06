@@ -29,7 +29,7 @@
       gtag('config', 'UA-89117598-3');
     </script>
     <!-- End -->
-    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
     <script async defer src="/assets/nav.js"></script>
 </head>
 <body onload="$('.indeterminate').css('display', 'none')">
@@ -66,47 +66,54 @@
         </div>
         <div class="sep"></div>
     </header>
-    <h1 id="features">What do I need?</h1>
-    <p style="max-width:500px;margin:auto;">As a Twitch streamer, you need to have about 100 followers and 1,000 views. You also need about 100 people in your Discord server.</p>
+    <h1 id="body">What do I need?</h1>
+    <p style="max-width:500px;margin:auto;">We accept streamers of all community sizes! 40 or 40,000 followers, you're eligible for the partner program. You just need a Discord server.</p>
     <br><br>
     <h1 style="margin-bottom:0">What do I get?</h1>
     <div class="cards">
         <div class="card">
-            <img src="https://png.icons8.com/cotton/64/000000/medal2.png" alt="Twitch logo">
+            <img src="https://png.icons8.com/cotton/64/000000/medal2.png" alt="medal">
             <h3>Free gold status</h3>
             <p>Get all the same features that a <a href="https://patreon.com/devakira" target="_blank">gold patron</a> gets for TwitchBot.</p>
         </div>
         <div class="card">
-            <img src="https://png.icons8.com/cotton/64/000000/speedometer.png" alt="Twitch logo">
+            <img src="https://png.icons8.com/cotton/64/000000/speedometer.png" alt="speedometer">
             <h3>A role in our Discord</h3>
             <p>Show everyone else your special status with a shiny role.</p>
         </div>
         <div class="card">
-            <img src="https://png.icons8.com/cotton/64/000000/advertising.png" alt="Twitch logo">
-            <h3>Announce your stream in our server</h3>
-            <p>We'll add your stream to TwitchBot's notifications.</p>
+            <img src="https://png.icons8.com/cotton/64/000000/megaphone.png" alt="bullhorn">
+            <h3>We'll announce your stream</h3>
+            <p>You can get your stream displayed in our server when it goes live.</p>
+        </div>
+        <div class="card">
+            <img src="https://png.icons8.com/cotton/64/000000/survey.png" alt="test">
+            <h3>Access to early betas</h3>
+            <p>Be one of the first ones to test new work-in-progress features on TwitchBot.</p>
+        </div>
+        <div class="card">
+            <img src="https://png.icons8.com/cotton/64/000000/shield.png" alt="shield">
+            <h3>Exclusive mod commands</h3>
+            <p>Need to keep your server free from toxic messages? Get access to an advanced filter powered by Google's AI.</p>
         </div>
     </div>
     <div class="sep-2" style="margin-top:100px"></div>
     <div class="padded" style="background-color:rgb(36,40,43);z-index:1001;position:relative;">
-        <h2 style="font-size:250%" id="invite">Add TwitchBot to your server</h2>
         <p style="max-width:500px;margin:auto">
-            TwitchBot is a fully-featured Discord bot made for Twitch communities. So what are you waiting for?
+            <a class="button">Apply Now</a>
             <br><br><br>
-            <a class="button" href="https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot&response_type=code&redirect_uri=https://twitch.disgd.pw/thanks.html">Add to Discord</a>
-            <br><br><br>
-            <a href="how-to.html?utm_source=self&utm_medium=after_invite_btn"><i class='fas fa-question'></i>&emsp;How-to guide and FAQ</a>
-            <br><br>
-            <a class="brand discord" href="https://discord.me/konomi"><i class="fab fa-discord"></i></a>
-            <a class="brand paypal" href="https://www.paypal.me/akireee/5"><i class="fab fa-paypal"></i></a>
-            <a class="brand github" href="https://github.com/devakira/twitchbot"><i class="fab fa-github"></i></a>
-            <a class="brand twitter" href="https://twitter.com/AkiraDev_"><i class="fab fa-twitter"></i></a>
+            <span style="opacity:.5;font-size:.8em">Not a streamer, but still want the same features? Check out <a href="https://patreon.com/devakira">our Patreon</a>.</span>
         </p>
+        <div class="new-footer">
+            <span style="float:right">
+                <a class="brand discord" href="https://discord.me/konomi"><i class="fab fa-discord"></i></a>
+                <a class="brand patreon" href="https://www.patreon.com/devakira"><i class="fab fa-patreon"></i></a>
+                <a class="brand paypal" href="https://www.paypal.me/akireee"><i class="fab fa-paypal"></i></a>
+                <a class="brand github" href="https://github.com/devakira/twitchbot"><i class="fab fa-github"></i></a>
+                <a class="brand twitter" href="https://twitter.com/AkiraDev_"><i class="fab fa-twitter"></i></a>
+            </span>
+            <span class="branding">TwitchBot<br><small style='opacity:.7;font-size:.5em'>Copyright (C) 2018 Akira#4587</small></span>
+        </div>
     </div>
-    <footer>
-        <h3 style="margin-bottom:.1em;font-size:150%">TwitchBot</h3>
-        <span style="float:right"><a href="https://discordbots.org/bot/twitch" target="_blank"><img src="https://discordbots.org/api/widget/servers/375805687529209857.svg?rightcolor=6441A4&leftcolor=212121"></a></span>
-        <span style="color:rgba(255,255,255,.8);font-weight:300">Copyright <i class="far fa-copyright"></i> 2018 <a href="https://disgd.pw">Akira#4587</a><br><span style="font-size:80%"><a href="tos.html">Terms of Service & Privacy Policy</a></span></span>
-    </footer>
 </body>
 </html>

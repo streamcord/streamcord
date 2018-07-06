@@ -206,6 +206,10 @@ footer {
     background-color: #003087;
 }
 
+.brand.patreon {
+    background-color: #f96854;
+}
+
 .brand.github {
     color: #333;
     background-color: white;
@@ -235,6 +239,19 @@ footer {
     color: white;
     opacity: .5;
     font-size: .8em;
+}
+
+.new-footer {
+    max-width: 800px;
+    margin: auto;
+    margin-top: 6em;
+    text-align: left;
+}
+
+.new-footer .branding {
+    font-size: 1.5em;
+    vertical-align: middle;
+    opacity: .7;
 }
 
 *[mobile-only] {
