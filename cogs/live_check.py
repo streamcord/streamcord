@@ -40,15 +40,18 @@ class LiveCheck:
             f.close()
             await ctx.send("Users in this server who go live on Twitch will receive the `{}` role.".format(role_to_add.name))
             g = ctx.guild
-            for m in filter(lambda m: isinstance(m.activity, discord.Streaming), g.members):
-                if not m.bot:
-                    logging.info("Adding streamer role to {before.id} in {before.guild.id}".format(before=m))
-                    await m.add_roles(role_to_add, reason="User went live on Twitch")
-            for m in filter(lambda m: discord.utils.get(m.roles, id=role_to_add.id) is not None, g.members):
-                if not isinstance(m.activity, discord.Streaming):
+            try:
+                for m in filter(lambda m: isinstance(m.activity, discord.Streaming), g.members):
                     if not m.bot:
-                        logging.info("Removing streamer role from {before.id} in {before.guild.id}".format(before=m))
-                        await m.remove_roles(role_to_add, reason="User no longer live on Twitch")
+                        logging.info("Adding streamer role to {before.id} in {before.guild.id}".format(before=m))
+                        await m.add_roles(role_to_add, reason="User went live on Twitch")
+                for m in filter(lambda m: discord.utils.get(m.roles, id=role_to_add.id) is not None, g.members):
+                    if not isinstance(m.activity, discord.Streaming):
+                        if not m.bot:
+                            logging.info("Removing streamer role from {before.id} in {before.guild.id}".format(before=m))
+                            await m.remove_roles(role_to_add, reason="User no longer live on Twitch")
+            except discord.Forbidden as e:
+                await ctx.send("I need the **`Manage Roles`** permission to do this. If I have the permission, then make sure to drag the role named `TwitchBot` above the role you want to live check with.")
 
 
 def setup(bot):

@@ -4,11 +4,6 @@ import requests
 import time
 import logging
 
-def replace_all(text, dic):
-    for i, j in dic.iteritems():
-        text = text.replace(i, j)
-    return text
-
 def TRIGGER_WEBHOOK(msg):
     r = requests.post("https://canary.discordapp.com/api/webhooks/webhook_id/webhook_token", data={"content": msg})
     return r
@@ -42,7 +37,7 @@ async def STREAM_REQUEST(bot, url):
     if r.status_code == 429:
         bot.ratelimits['twitch'] = r.headers.get('RateLimit-Reset')
     elif r.status_code != 200:
-        TRIGGER_WEBHOOK("GET {0.url} {0.status_code}".format(r))
+        TRIGGER_WEBHOOK("GET `{0.url}` - {0.status_code} {1}".format(r, requests.status_codes._codes[r.status_code][0].upper()))
     return r
 
 def DBOTS_REQUEST(url):
@@ -125,7 +120,7 @@ def FORMAT_OWAPI_USER(username):
     return u
 
 def TRIGGER_WEBHOOK(msg):
-    payload = {"content": replace_all(msg, {"@everyone": "[at]everyone", "@here": "[at]here"})}
+    payload = {"content": msg}
     r = requests.post("https://canary.discordapp.com/api/webhooks/439168005981732876/LiVgbdAxojV1z-A1zFjteyH9UsAX3clZcIfcZ6AlXvI26E9ebSNYlfc2jJTCdrXqmbPX", data=payload)
     if r.status_code > 299:
         log.error("Webhook failed with status of " + str(r.status_code))

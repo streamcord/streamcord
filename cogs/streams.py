@@ -3,6 +3,7 @@ from utils.functions import TWAPI_REQUEST
 import discord, asyncio
 import logging, traceback
 from random import choice
+import urllib.parse
 
 class Streams:
     def __init__(self, bot):
@@ -55,6 +56,29 @@ Stream Preview:
 
     @stream.command()
     @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
+    async def game(self, ctx, *, name):
+        await ctx.trigger_typing()
+        g = TWAPI_REQUEST("https://api.twitch.tv/helix/games?" + urllib.parse.urlencode({"name": name}))
+        g.raise_for_status()
+        try:
+            g = g.json()['data'][0]
+        except:
+            return await ctx.send("That game could not be found.")
+        game = g['name']
+        await asyncio.sleep(1)
+        s = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?game_id=" + g['id'])
+        s.raise_for_status()
+        if len(s.json()['data']) < 1:
+            return await ctx.send("Nobody is streaming that game.")
+        stream = choice(s.json()['data'])
+        await asyncio.sleep(1)
+        u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?id=" + stream['user_id'])
+        u.raise_for_status()
+        await ctx.send("Check out {0} playing {1} for {2} viewers:\nhttps://twitch.tv/{0}".format(u.json()['data'][0]['display_name'], game, stream['viewer_count']))
+
+
+    @stream.command()
+    @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
     async def top(self, ctx):
         await ctx.trigger_typing()
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?first=20")
@@ -68,7 +92,7 @@ Stream Preview:
         g.raise_for_status()
         await asyncio.sleep(1)
         g = g.json()["data"][0]
-        return await ctx.send("Check out {0} playing {1} for {2} viewers: https://twitch.tv/{0}".format(u['login'], g['name'], stream['viewer_count']))
+        return await ctx.send("Check out {0} playing {1} for {2} viewers:\nhttps://twitch.tv/{0}".format(u['login'], g['name'], stream['viewer_count']))
 
 
 

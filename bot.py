@@ -125,6 +125,10 @@ async def on_message(message):
     if message.author.bot:
         return
     elif message.content.lower().startswith(prefix[0]):
+        if message.guild:
+            log.info("{0.author} {0.author.id} in {0.guild.name} {0.guild.id}: {0.clean_content}".format(message))
+        else:
+            log.info("{0.author} {0.author.id} in DM: {0.clean_content}".format(message))
         if message.content.lower() in list(map(lambda t: t + "help", prefix)):
             # === Send help command === #
             return await message.channel.send(embed=presence.send_help_content(message, bot))

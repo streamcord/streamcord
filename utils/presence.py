@@ -56,6 +56,7 @@ def send_commands_content():
 `twitch user <user>` - Gets info on a Twitch channel
 `twitch stream user <user>` - Gets info on a user's stream
 `twitch stream watch <user>` - Watch a Twitch stream from Discord
+`twitch stream game <name>` - Watch someone stream the specified game
 `twitch stream top` - Fetches info on a top stream
 `twitch game <name>` - Gets info on a Twitch game
 `twitch top` - Gets the most popular Twitch games

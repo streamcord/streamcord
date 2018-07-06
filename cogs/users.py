@@ -14,7 +14,7 @@ class Users:
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + user)
         if r.json()["data"] == [] or r.status_code == 400:
-            await ctx.send("That user doesn't exist. If you entered the user's full profile url, try redoing the command with just their user name.")
+            return await ctx.send("That user doesn't exist. If you entered the user's full profile url, try redoing the command with just their user name.")
         r.raise_for_status()
         r = r.json()["data"][0]
         s = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)

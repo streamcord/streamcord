@@ -23,9 +23,7 @@ class Notifs:
         """Sets up notifications for a Twitch user in the specified channel."""
         if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
             return await ctx.send("You need the **Manage Server** permission to do this.")
-        username = twitch_user
-        if "https://twitch.tv/" in twitch_user:
-            username = twitch_user.strip("https://twitch.tv").strip("/")
+        username = twitch_user.split('/')[-1]
         if not discord_channel.permissions_for(ctx.guild.me).send_messages:
             return await ctx.send("I don't have permission to send messages in the requested channel.")
         try:
@@ -35,14 +33,16 @@ class Notifs:
                 await self.bot.say("That user does not exist.")
             else:
                 if self.bot.notifs.get(s.json()['data'][0]['id']) is None:
-                    self.bot.notifs[s.json()['data'][0]['id']] = {str(discord_channel.id): {"name": username, "last_stream_id": None, "message": msg or "{} is now live on Twitch!".format(twitch_user)}}
+                    self.bot.notifs[s.json()['data'][0]['id']] = {str(discord_channel.id): {"name": username, "last_stream_id": None, "message": msg or "<https://twitch.tv/{}> is now live on Twitch!".format(username)}}
                 else:
-                    self.bot.notifs[s.json()['data'][0]['id']][str(discord_channel.id)] = {"name": username, "last_stream_id": None, "message": msg or "{} is now live on Twitch!".format(twitch_user)}
+                    self.bot.notifs[s.json()['data'][0]['id']][str(discord_channel.id)] = {"name": username, "last_stream_id": None, "message": msg or "<https://twitch.tv/{}> is now live on Twitch!".format(username)}
                 f = open(os.path.join(os.getcwd(), 'data', 'notifs.json'), 'w')
                 f.write(json.dumps(self.bot.notifs))
                 f.close()
                 return await ctx.send("You should now receive a message in {} when `{}` goes live.".format(discord_channel.mention, username))
         except KeyError as e:
+            return await ctx.send("That Twitch user doesn't exist. Make sure that you're not putting <> around the name, and that you're not @mentioning a Discord user.")
+        except IndexError as e:
             return await ctx.send("That Twitch user doesn't exist. Make sure that you're not putting <> around the name, and that you're not @mentioning a Discord user.")
         except:
             return await ctx.send(traceback.format_exc())
