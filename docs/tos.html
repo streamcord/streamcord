@@ -41,18 +41,28 @@
         100% {transform: rotate(720deg);}
     }
     </style>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script async defer src="/assets/nav.js"></script>
 </head>
-<body>
-    <!--<div class="notice">
-        TwitchBot is currently unavailable for maintenance. You can still invite the bot to your server, but commands will temporarily not work. Join the support server for more info on when TwitchBot will be online again.
-    </div>-->
+<body onload="$('.indeterminate').css('display', 'none')">
+    <div class="logged-in-ctx" style="display:none">
+        <a href="https://discordbots.org/bot/twitch">DBL Page</a>
+        <a href="/partners">Partners</a>
+        <div class="sep"></div>
+        <a href="/tos.html">Legal</a>
+    </div>
+    <div class="progress">
+        <div class="indeterminate"></div>
+    </div>
     <nav>
         <span><a class="main" href="/">TwitchBot</a></span>
         <span style="padding-left:10px">
-            <a href="/#features">Features</a>
-            <a href="/#invite">Invite</a>
+            <a href="#features">Features</a>
+            <a href="#invite">Invite</a>
             <a href="how-to.html?utm_source=self&utm_medium=navbar">FAQ</a>
             <a href="https://discord.me/konomi">Support</a>
+            <a href="https://discordbots.org/bot/twitch/vote">Upvote&ensp;<div class="bubble-alert" title="Upvoting the bot helps support us, and you also get rewards for doing it!">!</div></a>
+            <a id="more" href="javascript:toggleNavOpts()"><i class="fas fa-chevron-down"></i></a>
         </span>
     </nav>
     <header>

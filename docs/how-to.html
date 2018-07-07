@@ -28,6 +28,8 @@
       gtag('js', new Date());
       gtag('config', 'UA-89117598-3');
     </script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script async defer src="/assets/nav.js"></script>
     <style>
     h2 {
         margin-top: 3em;
@@ -38,14 +40,25 @@
     }
     </style>
 </head>
-<body>
+<body onload="$('.indeterminate').css('display', 'none')">
+    <div class="logged-in-ctx" style="display:none">
+        <a href="https://discordbots.org/bot/twitch">DBL Page</a>
+        <a href="/partners">Partners</a>
+        <div class="sep"></div>
+        <a href="/tos.html">Legal</a>
+    </div>
+    <div class="progress">
+        <div class="indeterminate"></div>
+    </div>
     <nav>
         <span><a class="main" href="/">TwitchBot</a></span>
         <span style="padding-left:10px">
-            <a href="/#features">Features</a>
-            <a href="/#invite">Invite</a>
+            <a href="#features">Features</a>
+            <a href="#invite">Invite</a>
             <a href="how-to.html?utm_source=self&utm_medium=navbar">FAQ</a>
             <a href="https://discord.me/konomi">Support</a>
+            <a href="https://discordbots.org/bot/twitch/vote">Upvote&ensp;<div class="bubble-alert" title="Upvoting the bot helps support us, and you also get rewards for doing it!">!</div></a>
+            <a id="more" href="javascript:toggleNavOpts()"><i class="fas fa-chevron-down"></i></a>
         </span>
     </nav>
     <header style="height: 250px">
