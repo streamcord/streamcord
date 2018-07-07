@@ -216,6 +216,19 @@ footer {
     padding: 7.5px 9px 9px;
 }
 
+.bubble-alert {
+    background-color: rgb(255, 42, 42);
+    box-shadow: rgba(255, 42, 42, 0.38) 0px 3px 5px -1px, rgba(255, 42, 42, 0.38) 0px 4px 9px 0px, rgba(255, 42, 42, 0.22) 0px 1px 12px 0px;
+    border-radius: 10px;
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    text-align: center;
+    font-weight: bold;
+    animation: bounce 2s infinite;
+    position: relative;
+}
+
 .logged-in-ctx {
     padding: .1rem;
     background-color: rgb(35, 39, 42);
@@ -330,6 +343,16 @@ https://codepen.io/holdencreative/pen/vEVbwv
               animation: indeterminate-short 2.1s cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
       -webkit-animation-delay: 1.15s;
               animation-delay: 1.15s; }
+
+@keyframes bounce {
+    0% {bottom: 0}
+    20% {bottom: 5px}
+    30% {bottom: 0}
+    40% {bottom: 3.5px}
+    45% {bottom: 0}
+    50% {bottom: 2px}
+    55% {bottom: 0}
+}
 
 @-webkit-keyframes indeterminate {
   0% {
