@@ -13,6 +13,7 @@ from utils.functions import STREAM_REQUEST, SPLIT_EVERY, TRIGGER_WEBHOOK
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
 
+modules = ["cogs.general", "cogs.bits", "cogs.users", "cogs.games", "cogs.streams", "cogs.audio", "cogs.notifs", "cogs.stats", "cogs.dev", "cogs.clips", "cogs.live_check", "cogs.moderation"]
 if settings.BETA:
     prefix = ["twbeta ", "Twbeta "]
 else:
