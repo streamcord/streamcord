@@ -1,16 +1,20 @@
 from discord.ext import commands
 import discord
+import re
 from utils.functions import TWAPI_REQUEST
 import traceback
 
 class Users:
     def __init__(self, bot):
         self.bot = bot
+        self.regex = re.compile('^\w+$')
 
     @commands.command(pass_context=True, aliases=["channel"])
     async def user(self, ctx, *, user):
         await ctx.trigger_typing()
         user = user.split('/')[-1]
+        if self.regex.match(user) is None:
+            return await ctx.send("That doesn't look like a valid Twitch user. You can only include underscores, letters, and numbers.")
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + user)
         if r.json()["data"] == [] or r.status_code == 400:

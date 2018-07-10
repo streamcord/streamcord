@@ -5,7 +5,7 @@ import json
 import os, sys
 import time
 import aiohttp
-
+from random import randint
 from utils import presence
 from utils import settings
 from utils.functions import STREAM_REQUEST, SPLIT_EVERY, TRIGGER_WEBHOOK
@@ -13,14 +13,12 @@ from utils.functions import STREAM_REQUEST, SPLIT_EVERY, TRIGGER_WEBHOOK
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
 
-modules = ["cogs.general", "cogs.users", "cogs.games", "cogs.streams", "cogs.audio", "cogs.notifs", "cogs.stats", "cogs.dev", "cogs.clips", "cogs.live_check", "cogs.moderation"]
 if settings.BETA:
     prefix = ["twbeta ", "Twbeta "]
 else:
     prefix = ["twitch ", "Twitch ", "!twitch ", "?twitch "]
 
 bot = commands.AutoShardedBot(command_prefix=prefix)
-bot.remove_command('help')
 bot.notifs = json.loads(open(os.path.join(os.getcwd(), 'data', 'notifs.json')).read())
 bot.livecheck = json.loads(open(os.path.join(os.getcwd(), 'data', 'live.json')).read())
 bot.perspective = json.loads(open(os.path.join(os.getcwd(), 'data', 'perspective.json')).read())
@@ -110,15 +108,21 @@ async def on_command_error(ctx, error):
     elif isinstance(error, commands.CommandInvokeError):
         log.error(str(error.original))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
-        e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}\n```".format(error.original)
+        e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}: {}\n```".format(type(error.original).__name__, error.original)
         await ctx.send(embed=e)
-        TRIGGER_WEBHOOK("error in `{}`: `{}`".format(ctx.message.content, error.original))
+        if message.guild:
+            TRIGGER_WEBHOOK("{0.author} {0.author.id} in {0.guild.name} {0.guild.id}: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error.original).__name__, error.original))
+        else:
+            TRIGGER_WEBHOOK("{0.author} {0.author.id} in DM: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error.original).__name__, error.original))
     else:
         log.error(str(error))
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
         e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}: {}\n```".format(type(error).__name__, error)
         await ctx.send(embed=e)
-        TRIGGER_WEBHOOK("error in `{}`: `{}: {}`".format(ctx.message.content, type(error).__name__, error))
+        if message.guild:
+            TRIGGER_WEBHOOK("{0.author} {0.author.id} in {0.guild.name} {0.guild.id}: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error).__name__, error))
+        else:
+            TRIGGER_WEBHOOK("{0.author} {0.author.id} in DM: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error).__name__, error))
 
 @bot.event
 async def on_message(message):
@@ -217,9 +221,11 @@ async def poll():
                             e.title = stream['title']
                             game = "null"
                             if bot.game_cache.get(stream['game_id']) is None:
+                                await asyncio.sleep(1)
                                 r2 = await STREAM_REQUEST(bot, "/games?id=" + stream['game_id'])
                                 if r2.status_code > 299:
                                     TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r2.status_code, r2.json()))
+                                    game = "Unknown (ratelimited)"
                                 else:
                                     try:
                                         game = r2.json()['data'][0]['name']

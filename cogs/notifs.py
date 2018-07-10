@@ -3,7 +3,7 @@ import traceback, logging
 from discord.ext import commands
 from utils.functions import TWAPI_REQUEST, STREAM_REQUEST, SPLIT_EVERY
 from utils import settings
-import json
+import json, re
 import os
 import aiohttp
 
@@ -12,6 +12,7 @@ log = logging.getLogger("bot.notifs")
 class Notifs:
     def __init__(self, bot):
         self.bot = bot
+        self.regex = re.compile('^\w+$')
 
     @commands.group(pass_context=True)
     async def notif(self, ctx):
@@ -24,6 +25,8 @@ class Notifs:
         if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
             return await ctx.send("You need the **Manage Server** permission to do this.")
         username = twitch_user.split('/')[-1]
+        if self.regex.match(username) is None:
+            return await ctx.send("That doesn't look like a valid Twitch user. You can only include underscores, letters, and numbers.")
         if not discord_channel.permissions_for(ctx.guild.me).send_messages:
             return await ctx.send("I don't have permission to send messages in the requested channel.")
         try:
@@ -58,18 +61,24 @@ class Notifs:
         for streamer in f:
             s = streamer[str(channel.id)]
             msg += "**{}** - {}\n".format(s.get('name', '???'), s['message'])
-        e.add_field(name="Notifications", value=msg or 'No streamer notifications are set up for this channel.')
-        e.set_footer(icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url, text=str(ctx.author))
+        if len(msg) > 1024:
+            msg = ""
+            e.description += "\nMessages for streamer notifications were removed due to limitations with Discord embeds."
+            for streamer in f:
+                s = streamer[str(channel.id)]
+                msg += "**{}**\n".format(s.get('name', '???'))
+        e.add_field(name="Notifications", value=msg[:1024] or 'No streamer notifications are set up for this channel.')
+        e.set_footer(icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url, text=str(ctx.author) + " • Join the support server at discord.me/konomi if the embed did not display correctly")
         await ctx.send(embed=e)
 
     @notif.command(aliases=["del", "delete"], pass_context=True)
     async def remove(self, ctx, discord_channel: discord.TextChannel, twitch_user: str):
         """Deletes notifications for a Twitch user in the specified channel."""
-        username = twitch_user
+        username = twitch_user.split('/')[-1]
         if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
             return await ctx.send("You need the **Manage Server** permission to do this.")
-        if "https://twitch.tv/" in twitch_user:
-            username = twitch_user.strip("https://twitch.tv").strip("/")
+        if self.regex.match(username) is None:
+            return await ctx.send("That doesn't look like a valid Twitch user. You can only include underscores, letters, and numbers.")
         try:
             s = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + username)
             if s.status_code == 404:

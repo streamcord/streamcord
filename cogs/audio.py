@@ -51,7 +51,7 @@ class Audio:
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, no_pm=True)
     async def listen(self, ctx, *, url: str):
         """Listen to the specified Twitch user in the current voice channel."""
         url = "https://www.twitch.tv/" + url.split('/')[-1]

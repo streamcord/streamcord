@@ -6,7 +6,7 @@ from . import settings
 import logging
 
 async def change_presence(bot):
-    await bot.change_presence(activity=discord.Streaming(name="twitch help - {} guilds".format(len(bot.guilds)), url="https://twitch.tv/kraken"))
+    await bot.change_presence(activity=discord.Streaming(name="twitch help - {} guilds".format(len(bot.guilds)), url="https://twitch.tv/twitchbot_discord"))
 
 async def post_stats(bot):
     async with aiohttp.ClientSession() as session:
@@ -31,7 +31,7 @@ def send_help_content(ctx, bot):
     e.set_author(icon_url=bot.user.avatar_url, name="TwitchBot Help", url="https://twitch.disgd.pw/")
     e.set_thumbnail(url=bot.user.avatar_url)
     e.description = "Hello! <:twitch:404633403603025921> I'm a bot that helps integrate Discord servers with Twitch."
-    e.add_field(name="Commands", value="To view a list of all commands, type `twitch commands`.")
+    e.add_field(name="Commands", value="To view a list of all commands, type `twitch commands`.\n\n**Make sure to leave out `<>` and `[]` when using commands, they're only for the help page.**")
     e.add_field(name="Support", value="Found an error, or having trouble with the bot? Join the Discord [here](https://discordapp.com/invite/UNYzJqV) and the support team will assist you.")
     e.add_field(name="Invite", value="[Click here](https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot&response_type=code&redirect_uri=https://twitch.disgd.pw/thanks.html) to invite me to your Discord server.")
     e.add_field(name="Website", value="You can view my website at https://twitch.disgd.pw.")

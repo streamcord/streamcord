@@ -5,10 +5,12 @@ from urllib.parse import urlencode
 from random import choice
 import asyncio
 import logging
+import re
 
 class Clips:
     def __init__(self, bot):
         self.bot = bot
+        self.regex = re.compile('^\w+$')
 
     @commands.group(pass_context=True, aliases=["clip"])
     async def clips(self, ctx):
@@ -19,6 +21,8 @@ class Clips:
     @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
     async def _from(self, ctx, twitch_user: str, *args):
         twitch_user = twitch_user.split('/')[-1]
+        if self.regex.match(twitch_user) is None:
+            return await ctx.send("That doesn't look like a valid Twitch user. You can only include underscores, letters, and numbers.")
         trending = ""
         if "--trending" in args:
             trending = "&trending=true"

@@ -30,7 +30,7 @@ class GameStats:
         r = OWAPI_REQUEST("/u/{}/stats?platform={}".format(username, platform))
         await ctx.trigger_typing()
         if r.status_code == 404 or (r.json().get('any') is None and r.json().get('us') is None and r.json().get('eu') is None and r.json().get('kr') is None):
-            await ctx.send("Player could not be found or no competitive stats exist for this season.")
+            await ctx.send("No stats could be found for this player. If your profile is private, you can't see stats for it unless you make it public. Please follow the steps at <https://dotesports.com/overwatch/news/ow-public-private-profile-25347> to make your profile public.")
             return
         elif r.status_code != 200:
             await ctx.send("An error occurred: {0.status_code}".format(r))
@@ -62,7 +62,7 @@ class GameStats:
             await ctx.send("Player not found. Check the spelling of the username or try a different platform.")
             return
         elif r.status_code != 200:
-            await ctx.send("An error occurred" + str(r.status_code))
+            await ctx.send("An error occurred: " + str(r.status_code))
             return
         stats = r.json()['stats']['p2'] or r.json()['stats']['p10'] or r.json()['stats']['p9']
         e = discord.Embed(color=0x2196F3, title="Fortnite Stats")
@@ -80,7 +80,7 @@ class GameStats:
     async def rocketleague(self, ctx, platform, *, username):
         await ctx.trigger_typing()
         if not platform in ["pc", "psn", "xbl"]:
-            await self.bot.say("Platform must be one of `pc`, `psn`, or `xbl`.")
+            await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
             return
         elif platform == "pc":
             platform = 1
@@ -109,7 +109,7 @@ class GameStats:
     async def pubg(self, ctx, platform, *, username): # nvm api doesn't work anyways
         await ctx.trigger_typing()
         if not platform in ["pc", "psn", "xbl"]:
-            await self.bot.say("Platform must be one of `pc`, `psn`, or `xbl`.")
+            await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
             return
 
 def setup(bot):
