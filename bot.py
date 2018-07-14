@@ -9,6 +9,7 @@ from random import randint
 from utils import presence
 from utils import settings
 from utils.functions import STREAM_REQUEST, SPLIT_EVERY, TRIGGER_WEBHOOK
+from collections import Counter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
 log = logging.getLogger("bot.core")
@@ -193,6 +194,69 @@ async def on_member_update(before, after):
  #     }
  # }
 
+async def poll2():
+    logr = logging.getLogger("bot.notifs")
+    await bot.wait_until_ready()
+    while not bot.is_closed():
+        logr.info("iter notifs")
+        notifs = dict(bot.notifs).copy()
+        streamers = SPLIT_EVERY(100, notifs)
+        for split in streamers:
+            if len(split) < 1:
+                continue
+            stream_data = await STREAM_REQUEST(bot, "/streams?user_id=" + "&user_id=".join(list(split.keys())))
+            if stream_data.status_code > 299:
+                TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(stream_data.status_code, stream_data.json()))
+                await asyncio.sleep(1)
+                continue
+            await asyncio.sleep(1)
+            user_data = await STREAM_REQUEST(bot, "/users?id=" + "&id=".join(map(lambda s: s['user_id'], stream_data.json()['data'])))
+            if user_data.status_code > 299:
+                TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(stream_data.status_code, stream_data.json()))
+                await asyncio.sleep(1)
+                continue
+            games = Counter(map(lambda s: s['game_id'], stream_data.json()['data'])).keys()
+            await asyncio.sleep(1)
+            game_data = await STREAM_REQUEST(bot, "/games?id=" + "&id=".join(games))
+            if game_data.status_code > 299:
+                TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(stream_data.status_code, stream_data.json()))
+                await asyncio.sleep(1)
+                continue
+            compiled = []
+            for stream in stream_data.json()['data']:
+                user = list(filter(lambda u: u['id'] == stream['user_id'], user_data.json()['data']))[0]
+                game = list(filter(lambda g: g['id'] == stream['game_id'], game_data.json()['data']))[0]
+                compiled.append({"stream": stream, "user": user, "game": game})
+            for s in compiled:
+                channels = dict(bot.notifs[s['user']['id']]).copy()
+                if len(list(channels.keys())) == 0:
+                    del bot.notifs[s['user']['id']]
+                    logr.info('no channels to notify... deleting')
+                    continue
+                e = discord.Embed(color=discord.Color(0x6441A4))
+                e.title = s['stream']['title']
+                e.description = "Playing {} for {} viewers\n[Watch on Twitch](https://twitch.tv/{})".format(s['game']['name'], s['stream']['viewer_count'], s['user']['login'])
+                e.set_author(name=s['user']['login'], url="https://twitch.tv/{}".format(s['user']['login']), icon_url=s['user']['profile_image_url'])
+                e.set_image(url=s['stream']['thumbnail_url'].format(width=1920, height=1080))
+                for c in channels.keys():
+                    if bot.notifs[s['user']['id']][c]['last_stream_id'] == s['stream']['id']:
+                        continue
+                    channel = bot.get_channel(int(c))
+                    if channel is None:
+                        del bot.notifs[s['user']['id']][c]
+                        logr.info("channel does not exist... deleting")
+                        continue
+                    try:
+                        await channel.send(bot.notifs[s['user']['id']][c]['message'], embed=e)
+                        logr.info('notified in ' + str(c))
+                        await asyncio.sleep(1)
+                    except discord.Forbidden:
+                        del bot.notifs[s['user']['id']][c]
+                        logr.info("forbidden... deleting")
+                        continue
+        await asyncio.sleep(60)
+
+
 async def poll():
     await bot.wait_until_ready()
     while not bot.is_closed():
@@ -254,9 +318,10 @@ async def poll():
                                 log.error(traceback.format_exc())
                                 TRIGGER_WEBHOOK("Failed to send message: ```\n{}\n```".format(traceback.format_exc()))
                             await asyncio.sleep(2)
-        await asyncio.sleep(300)
+                await asyncio.sleep(2)
+        await asyncio.sleep(60)
 
-bot.loop.create_task(poll())
+bot.loop.create_task(poll2())
 try:
     if settings.BETA:
         bot.run(settings.BETA_TOKEN, bot=True, reconnect=True)
