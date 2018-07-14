@@ -225,7 +225,10 @@ async def poll2():
             compiled = []
             for stream in stream_data.json()['data']:
                 user = list(filter(lambda u: u['id'] == stream['user_id'], user_data.json()['data']))[0]
-                game = list(filter(lambda g: g['id'] == stream['game_id'], game_data.json()['data']))[0]
+                try:
+                    game = list(filter(lambda g: g['id'] == stream['game_id'], game_data.json()['data']))[0]
+                except IndexError:
+                    game = {"name": "Unknown", "id": 0}
                 compiled.append({"stream": stream, "user": user, "game": game})
             for s in compiled:
                 channels = dict(bot.notifs[s['user']['id']]).copy()
