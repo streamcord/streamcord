@@ -9,7 +9,7 @@ function create(i) {
   $('<div class="confetti-'+i+'">'+word+'</div>').css({
     "height" : height+"px",
     "top" : -Math.random()*20+"%",
-    "left" : Math.random()*100+"%",
+    "left" : Math.random()*90+"%",
     "opacity" : Math.random() / 2 + 0.1,
     "transform" : "rotate("+Math.random()*360+"deg)"
   }).appendTo('.wrapper');
