@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css?family=Roboto:300,400,500');
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/css?family=Inconsolata');
 
 body {
     padding: 0;
@@ -40,7 +41,20 @@ nav .main {
     font-weight: bold;
     position: relative;
     bottom: 1px;
-    margin-bottom: 80px;
+}
+
+.new {
+    padding: 2px 5px;
+    border-radius: 15px;
+    font-weight: 500;
+    color: white;
+    font-size: 12px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    background-color: #d50000;
+    position: relative;
+    bottom: 2px;
+    letter-spacing: .3px;
 }
 
 header .sep {
@@ -61,10 +75,21 @@ header {
     position: relative;
     overflow: hidden;
     padding: 2rem;
+    margin-bottom: 80px;
 }
 
 h1, h2, h3, h4 {
     font-weight: 300;
+}
+
+h1 .twemoji {
+    height: 39px;
+    vertical-align: middle;
+}
+
+h2 .twemoji {
+    height: 28px;
+    vertical-align: middle;
 }
 
 header h1, header h2 {
@@ -103,18 +128,9 @@ header h2 {
 
 *[class^=confetti] {
   position: absolute;
-}
-
-.red {
-  background-color: #E94A3F;
-}
-
-.yellow {
-  background-color: #FAA040;
-}
-
-.blue {
-  background-color: #5FC9F5;
+  white-space: nowrap;
+  user-select: none;
+  -moz-user-select: none;
 }
 
 .section {
@@ -125,6 +141,11 @@ header h2 {
 
 .section h2 {
     font-size: 1.8em;
+}
+
+.lang {
+    margin: 1rem 0;
+    text-align: left;
 }
 
 .tier {
@@ -165,6 +186,17 @@ header h2 {
     bottom: 4px;
 }
 
+.progress {
+    background-color: rgb(252, 252, 252);
+    height: 15px;
+    border-radius: 15px;
+}
+
+.progress .marker {
+    height: 15px;
+    background-color: #6441a4;
+    border-radius: 15px;
+}
 
 .logged-in-ctx {
     padding: .1rem;
@@ -205,4 +237,22 @@ header h2 {
     z-index: 1;
     max-width: 550px;
     margin: 1em auto;
+}
+
+code.preview {
+    display: block;
+    font-family: 'Inconsolata', monospace;
+    padding: 1rem;
+    line-height: 1.1rem;
+    background-color: rgb(44,47,51);
+    text-align: left;
+    color: white;
+}
+
+code.preview .v {
+    color: rgb(67, 181, 129);
+}
+
+code.preview .k {
+    color: rgb(240, 71, 71);
 }
