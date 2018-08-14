@@ -21,7 +21,7 @@ class Streams:
         e = discord.Embed(color=discord.Color(0x6441A4))
         r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + user)
         r.raise_for_status()
-        if r.json()["data"] == []:
+        if r.json().get("data") in [[], None]:
             await ctx.send("That user doesn't exist or is not online. Make sure you're only entering the user's name and not anything extra, like `()` or `<>`.")
         else:
             r = r.json()["data"][0]
@@ -32,7 +32,10 @@ class Streams:
             g = TWAPI_REQUEST("https://api.twitch.tv/helix/games?id=" + r["game_id"])
             g.raise_for_status()
             await asyncio.sleep(1)
-            g = g.json()["data"][0]
+            try:
+                g = g.json()["data"][0]
+            except:
+                g = {"id": 0, "name": "Unknown"}
             e.set_author(icon_url=u["profile_image_url"], name=u["display_name"], url="https://twitch.tv/{}".format(u["login"]))
             e.title = r["title"]
             e.description = """

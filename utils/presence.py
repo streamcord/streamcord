@@ -6,7 +6,10 @@ from . import settings
 import logging
 
 async def change_presence(bot):
-    await bot.change_presence(activity=discord.Streaming(name="twitch help - {} guilds".format(len(bot.guilds)), url="https://twitch.tv/twitchbot_discord"))
+    if settings.BETA:
+        await bot.change_presence(status=discord.Status.idle, activity=discord.Game("with new features"))
+    else:
+        await bot.change_presence(activity=discord.Streaming(name="twitch help - {} guilds".format(len(bot.guilds)), url="https://twitch.tv/twitchbot_discord"))
 
 async def post_stats(bot):
     async with aiohttp.ClientSession() as session:
@@ -18,13 +21,53 @@ async def post_stats(bot):
             "Authorization": settings.BotList.DBL,
             "Content-Type": "application/json"
         }
-        async with session.post("https://discordbots.org/api/bots/{}/stats".format(bot.user.id), data=json.dumps(payload), headers=headers) as r:
-            if r.status == 200:
+        async with session.post("https://discordbots.org/api/bots/375805687529209857/stats", data=json.dumps(payload), headers=headers) as r:
+            if not r.status > 299:
                 logging.info("Posted server count to DBL. ({} shards/{} guilds)".format(bot.shard_count, len(bot.guilds)))
             else:
                 logging.error("Error posting stats to DBL.")
                 logging.error("HTTP " + str(r.status))
                 logging.error(str(await r.json()))
+        headers = {
+            "Authorization": settings.BotList.BOTSDISCORDPW,
+            "Content-Type": "application/json"
+        }
+        async with session.post("https://bots.discord.pw/api/bots/375805687529209857/stats", data=json.dumps(payload), headers=headers) as r:
+            if not r.status > 299:
+                logging.info("Posted server count to bots.discord.pw. ({} shards/{} guilds)".format(bot.shard_count, len(bot.guilds)))
+            else:
+                logging.error("Error posting stats to bots.discord.pw.")
+                logging.error("HTTP " + str(r.status))
+                logging.error(str(await r.json()))
+        payload = {
+            "count": len(bot.guilds),
+            "server_count": len(bot.guilds)
+        }
+        headers = {
+            "Authorization": settings.BotList.BOTSFORDISCORD,
+            "Content-Type": "application/json"
+        }
+        async with session.post("https://botsfordiscord.com/api/v1/bots/375805687529209857", data=json.dumps(payload), headers=headers) as r:
+            if not r.status > 299:
+                logging.info("Posted server count to botsfordiscord.com. ({} shards/{} guilds)".format(bot.shard_count, len(bot.guilds)))
+            else:
+                logging.error("Error posting stats to botsfordiscord.com.")
+                logging.error("HTTP " + str(r.status))
+                logging.error(str(await r.json()))
+        headers = {
+            "Authorization": settings.BotList.KONOMIBOTS,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "guild_count": len(bot.guilds)
+        }
+        async with session.post("http://bots.disgd.pw/api/bot/375805687529209857/stats", data=json.dumps(payload), headers=headers) as r:
+            if not r.status > 299:
+                logging.info("Posted server count to konomi bots. ({} shards/{} guilds)".format(bot.shard_count, len(bot.guilds)))
+            else:
+                logging.error("Error posting stats to konomi bots.")
+                logging.error("HTTP " + str(r.status))
+                logging.error(str(await r.text()))
 
 def send_help_content(ctx, bot):
     e = discord.Embed(color=discord.Color(0x6441A4))
@@ -39,6 +82,12 @@ def send_help_content(ctx, bot):
     e.add_field(name="Upvote", value="[Upvote me on DBL](https://discordbots.org/bot/twitch/vote) to get access to audio.")
     e.add_field(name="Donate", value="Want to help keep me running on Discord, and get a couple rewards for doing so? Visit my Patreon at https://patreon.com/devakira.")
     e.add_field(name="About", value="To see statistics and more, type `twitch info`. I was made by Akira#4587 with discord.py rewrite.")
+    e.add_field(name="Partners", value="We're looking for passionate Twitch streamers who use TwitchBot. Apply and get exclusive rewards: https://twitch.disgd.pw/partners")
+    e.add_field(name=":flag_us: :flag_gb: :flag_es: :flag_br: :flag_fr: :flag_jp:", value="""
+Want to help translate TwitchBot to your language? We're hiring volunteer translators to make TwitchBot available in multiple languages!
+
+**Apply here if you're interested: https://twitch.disgd.pw/translators**
+    """)
     e.set_footer(icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url, text=str(ctx.author))
     return e
 

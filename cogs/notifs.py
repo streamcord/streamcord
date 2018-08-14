@@ -63,7 +63,7 @@ class Notifs:
             msg += "**{}** - {}\n".format(s.get('name', '???'), s['message'])
         if len(msg) > 1024:
             msg = ""
-            e.description += "\nMessages for streamer notifications were removed due to limitations with Discord embeds."
+            e.description += "\nCustom messages weren't included in the embed because there is a Discord-set limit of 1024 characters in a section. They'll still show when the user goes live."
             for streamer in f:
                 s = streamer[str(channel.id)]
                 msg += "**{}**\n".format(s.get('name', '???'))
@@ -71,7 +71,7 @@ class Notifs:
         e.set_footer(icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url, text=str(ctx.author) + " • Join the support server at discord.me/konomi if the embed did not display correctly")
         await ctx.send(embed=e)
 
-    @notif.command(aliases=["del", "delete"], pass_context=True)
+    @notif.command(aliases=["del", "delete"])
     async def remove(self, ctx, discord_channel: discord.TextChannel, twitch_user: str):
         """Deletes notifications for a Twitch user in the specified channel."""
         username = twitch_user.split('/')[-1]
@@ -96,6 +96,26 @@ class Notifs:
             await ctx.send(traceback.format_exc())
         else:
             await ctx.send("You won't get any notifications in {} when `{}` goes live.".format(discord_channel.mention, username))
+
+    @notif.command()
+    async def force(self, ctx, discord_channel: discord.TextChannel, twitch_user: str):
+        """Forces a stream notification for a Twitch user in the specified channel."""
+        username = twitch_user.split('/')[-1]
+        if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
+            return await ctx.send("You need the **Manage Server** permission to do this.")
+        elif self.regex.match(username) is None:
+            return await ctx.send("That doesn't look like a valid Twitch user. You can only include underscores, letters, and numbers.")
+        await ctx.trigger_typing()
+        s = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + twitch_user)
+        if s.status_code == 404:
+            return await ctx.send("That user does not exist.")
+        elif len(s.json()['data']) == 0:
+            return await ctx.send("That user is not live, can't send a notification for them.")
+        s = s.json()
+        meta = self.bot.notifs.get(s['data'][0]['user_id'], {}).get(discord_channel.id)
+        if meta is None:
+            meta = {"last_stream_id": None, "message": "{} is now live on Twitch! <https://twitch.tv/{}>"}
+
 
 def setup(bot):
     bot.add_cog(Notifs(bot))

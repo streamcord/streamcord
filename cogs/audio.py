@@ -56,7 +56,7 @@ class Audio:
         """Listen to the specified Twitch user in the current voice channel."""
         url = "https://www.twitch.tv/" + url.split('/')[-1]
         author = ctx.message.author
-        if author.voice is None:
+        if (not hasattr(author, "voice")) or author.voice is None:
             return await ctx.send("You need to be in a voice channel!")
         voice_channel = author.voice.channel
         member = self.bot.get_guild(294215057129340938).get_member(ctx.author.id)
@@ -70,23 +70,26 @@ class Audio:
                 return
 
         m = await ctx.send("Please wait... <a:loading:414007832849940482>")
-        try: vc = await voice_channel.connect()
-        except discord.ClientException:
-            session = ctx.message.guild.voice_client
-            await session.disconnect()
-            await asyncio.sleep(2)
-            vc = await voice_channel.connect()
+        try:
+            try:
+                vc = await voice_channel.connect()
+            except discord.ClientException:
+                session = ctx.message.guild.voice_client
+                await session.disconnect()
+                await asyncio.sleep(2)
+                vc = await voice_channel.connect()
+        except Exception as ex:
+            await ctx.send("{}: {}".format(type(ex).__name__, ex))
+            #await ctx.send("I'm already in a voice channel. Please stop the existing stream and then start it in the new channel.")
         try:
             r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + url.split("twitch.tv/")[1])
             if len(r.json()["data"]) < 1:
-                await m.delete()
-                return await ctx.send("<:twitch:404633403603025921> This user doesn't exist or is not currently streaming. If you entered the channel's url, try again with just the name.")
+                return await m.edit(content="<:twitch:404633403603025921> This user doesn't exist or is not currently streaming. If you entered the channel's url, try again with just the name.")
             r = r.json()["data"][0]
             await asyncio.sleep(0.5)
             r2 = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + url.split("twitch.tv/")[1])
             if len(r2.json()["data"]) < 1:
-                await m.delete()
-                return await ctx.send("<:twitch:404633403603025921> This user doesn't exist or is not currently streaming. If you entered the channel's url, try again with just the name.")
+                return await m.edit(content="<:twitch:404633403603025921> This user doesn't exist or is not currently streaming. If you entered the channel's url, try again with just the name.")
             r2 = r2.json()["data"][0]
             e = discord.Embed(color=0x6441A4, title="Now playing in {}".format(voice_channel.name), description="**{}**\n{} currently watching".format(r['title'], r['viewer_count']))
             e.set_author(name=r2['display_name'], url=url, icon_url=r2['profile_image_url'])
@@ -95,10 +98,14 @@ class Audio:
             player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
             vc.play(player, after=lambda e: logging.error("An audio player error occurred: " + e) if e else None)
             self.bot.vc[ctx.message.guild.id] = e
-            await m.delete()
-            await ctx.send(embed=e)
+            await m.edit(content=None, embed=e)
         except youtube_dl.DownloadError:
             await ctx.send("<:twitch:404633403603025921> This user doesn't exist or is not currently streaming.")
+        except TimeoutError:
+            await ctx.send("Voice connection timed out.")
+        except discord.ClientException as ex:
+            await ctx.send("{}: {}".format(type(ex).__name__, ex))
+            #await ctx.send("I'm already in a voice channel. Please stop the existing stream and then start it in the new channel.")
         except:
             await ctx.send("A fatal exception occurred:\n```\n" + traceback.format_exc() + "\n```")
 
@@ -111,7 +118,10 @@ class Audio:
             return
         else:
             await session.disconnect()
-            del self.bot.vc[ctx.message.guild.id]
+            try:
+                del self.bot.vc[ctx.message.guild.id]
+            except:
+                pass
             await ctx.send("Left the voice channel.")
 
     @commands.command(pass_context=True, aliases=['playing', 'nowplaying'])

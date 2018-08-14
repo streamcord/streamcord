@@ -3,10 +3,7 @@ from .exceptions import TooManyRequestsError
 import requests
 import time
 import logging
-
-def TRIGGER_WEBHOOK(msg):
-    r = requests.post("https://canary.discordapp.com/api/webhooks/webhook_id/webhook_token", data={"content": msg})
-    return r
+import asyncio, aiohttp
 
 def TWAPI_REQUEST(url):
     headers = {
@@ -36,7 +33,12 @@ async def STREAM_REQUEST(bot, url):
     logging.info("GET {0.url} {0.status_code}".format(r))
     if r.status_code == 429:
         bot.ratelimits['twitch'] = r.headers.get('RateLimit-Reset')
-    elif r.status_code != 200:
+        await asyncio.sleep(5)
+        fb = await STREAM_REQUEST(bot, url)
+        if fb.status_code != 200:
+            logging.info("GET {0.url} {0.status_code}".format(fb))
+            TRIGGER_WEBHOOK("GET `{0.url}` - {0.status_code} {1} (ratelimit fallback)".format(fb, requests.status_codes._codes[fb.status_code][0].upper()))
+    elif r.status_code > 399:
         TRIGGER_WEBHOOK("GET `{0.url}` - {0.status_code} {1}".format(r, requests.status_codes._codes[r.status_code][0].upper()))
     return r
 
@@ -123,5 +125,5 @@ def TRIGGER_WEBHOOK(msg):
     payload = {"content": msg}
     r = requests.post("https://canary.discordapp.com/api/webhooks/439168005981732876/LiVgbdAxojV1z-A1zFjteyH9UsAX3clZcIfcZ6AlXvI26E9ebSNYlfc2jJTCdrXqmbPX", data=payload)
     if r.status_code > 299:
-        log.error("Webhook failed with status of " + str(r.status_code))
+        logging.error("Webhook failed with status of " + str(r.status_code))
     return r

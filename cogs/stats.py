@@ -2,6 +2,7 @@ from discord.ext import commands
 import discord, asyncio
 from utils.functions import OWAPI_REQUEST, TRN_FORTNITE_REQUEST, RLS_REQUEST, FORMAT_OWAPI_USER
 import traceback
+from json import JSONDecodeError
 
 class GameStats:
     def __init__(self, bot):
@@ -35,19 +36,22 @@ class GameStats:
         elif r.status_code != 200:
             await ctx.send("An error occurred: {0.status_code}".format(r))
             return
-        res = r.json()['any'] or r.json()['us'] or r.json()['eu'] or r.json()['kr']
-        stats = {'overall': res['stats']['competitive']['overall_stats'], 'game': res['stats']['competitive']['game_stats']}
-        e = discord.Embed(color=0x2196F3, title="Overwatch Stats (Competitive)")
-        e.set_author(name=username.replace("-", "#").replace('_', ' '), icon_url=stats['overall']['avatar'], url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
-        e.set_thumbnail(url=stats['overall']['avatar'])
-        e.description = "{} hours played in {} games".format(stats['game']['time_played'], round(stats['game']['games_played']))
-        e.add_field(name="Competitive Rank", value="{} {}".format(self.emoji[stats['overall']['tier']], stats['overall']['comprank']))
-        e.add_field(name="Level", value=str((stats['overall']['prestige'] * 100) + stats['overall']['level']))
-        e.add_field(name="General", value="• {healing_done} healing done\n• {cards} cards\n• best multikill: {multikill_best} players\n• {damage_done} damage inflicted".format(**stats['game']))
-        e.add_field(name="Matches Played", value="• {total} total\n• {win} wins\n• {loss} losses\n• {wr}% win rate".format(total=stats['overall']['games'], win=stats['overall']['wins'], loss=stats['overall']['losses'], wr=stats['overall']['win_rate']))
-        e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
-        e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))
-        e.set_footer(text="Powered by owapi.net")
+        try:
+            res = r.json()['any'] or r.json()['us'] or r.json()['eu'] or r.json()['kr']
+            stats = {'overall': res['stats']['competitive']['overall_stats'], 'game': res['stats']['competitive']['game_stats']}
+            e = discord.Embed(color=0x2196F3, title="Overwatch Stats (Competitive)")
+            e.set_author(name=username.replace("-", "#").replace('_', ' '), icon_url=stats['overall'].get('avatar'), url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
+            e.set_thumbnail(url=stats['overall'].get('avatar'))
+            e.description = "{} hours played in {} games".format(stats['game']['time_played'], round(stats['game']['games_played']))
+            e.add_field(name="Competitive Rank", value="{} {}".format(self.emoji[stats['overall']['tier']], stats['overall']['comprank']))
+            e.add_field(name="Level", value=str((stats['overall']['prestige'] * 100) + stats['overall']['level']))
+            e.add_field(name="General", value="• {healing_done} healing done\n• {cards} cards\n• best multikill: {multikill_best} players\n• {damage_done} damage inflicted".format(**stats['game']))
+            e.add_field(name="Matches Played", value="• {total} total\n• {win} wins\n• {loss} losses\n• {wr}% win rate".format(total=stats['overall']['games'], win=stats['overall']['wins'], loss=stats['overall']['losses'], wr=stats['overall']['win_rate']))
+            e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
+            e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))
+            e.set_footer(text="Powered by owapi.net")
+        except:
+            await ctx.send("Your profile data is incomplete. If your profile is private, follow the steps at <https://dotesports.com/overwatch/news/ow-public-private-profile-25347> to make it public so you can view your stats.")
         await ctx.send(embed=e)
 
     @commands.command(pass_context=True, aliases=["fn"])
@@ -64,7 +68,10 @@ class GameStats:
         elif r.status_code != 200:
             await ctx.send("An error occurred: " + str(r.status_code))
             return
-        stats = r.json()['stats']['p2'] or r.json()['stats']['p10'] or r.json()['stats']['p9']
+        try:
+            stats = r.json()['stats']['p2'] or r.json()['stats']['p10'] or r.json()['stats']['p9']
+        except JSONDecodeError:
+            return await ctx.send("Player not found. Check the spelling of the username or try a different platform.")
         e = discord.Embed(color=0x2196F3, title="Fortnite Stats")
         e.set_author(name=r.json()['epicUserHandle'] + " on " + r.json()['platformNameLong'])
         e.description = "{} games played".format(stats['matches']['value'])

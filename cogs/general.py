@@ -5,6 +5,7 @@ import requests
 import sys
 from utils.functions import GET_UPTIME
 from utils import presence
+import psutil
 
 class General:
     def __init__(self, bot):
@@ -26,6 +27,11 @@ class General:
             e.add_field(name="Shard Info", value="**•** Current shard: {} (real: {})\n**•** Shard latency: {}ms\n**•** Total shards: {}".format(ctx.guild.shard_id + 1, ctx.guild.shard_id, round(self.bot.latency*1000), self.bot.shard_count))
         except:
             e.add_field(name="Shard Info", value="**•** Current shard: {} (real: {})\n**•** Shard latency: {}ms\n**•** Total shards: {}".format("None", "None", round(self.bot.latency*1000), self.bot.shard_count))
+        mem = psutil.virtual_memory()
+        e.add_field(name="System", value="""
+**•** {}% CPU
+**•** {}/{}MB memory used
+        """.format(psutil.cpu_percent(interval=0.1), round(mem.used/1000000), round(mem.total/1000000)))
         e.add_field(name="Website", value="https://twitch.disgd.pw", inline=False)
         e.add_field(name="Discord", value="https://discord.me/konomi", inline=False)
         e.add_field(name="Upvote", value="https://discordbots.org/bot/twitch/vote", inline=False)

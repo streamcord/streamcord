@@ -9,6 +9,7 @@ from random import randint
 from utils import presence
 from utils import settings
 from utils.functions import STREAM_REQUEST, SPLIT_EVERY, TRIGGER_WEBHOOK
+from utils.exceptions import TooManyRequestsError
 from collections import Counter
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s/%(module)s @ %(asctime)s: %(message)s', datefmt='%I:%M:%S %p')
@@ -17,6 +18,7 @@ log = logging.getLogger("bot.core")
 modules = ["cogs.general", "cogs.bits", "cogs.users", "cogs.games", "cogs.streams", "cogs.audio", "cogs.notifs", "cogs.stats", "cogs.dev", "cogs.clips", "cogs.live_check", "cogs.moderation"]
 if settings.BETA:
     prefix = ["twbeta ", "Twbeta "]
+    log.warning("!!! Running in development mode !!!")
 else:
     prefix = ["twitch ", "Twitch ", "!twitch ", "?twitch "]
 
@@ -24,11 +26,13 @@ bot = commands.AutoShardedBot(command_prefix=prefix)
 bot.notifs = json.loads(open(os.path.join(os.getcwd(), 'data', 'notifs.json')).read())
 bot.livecheck = json.loads(open(os.path.join(os.getcwd(), 'data', 'live.json')).read())
 bot.perspective = json.loads(open(os.path.join(os.getcwd(), 'data', 'perspective.json')).read())
+#bot.bits = json.loads(open(os.path.join(os.getcwd(), 'data', 'bits.json')).read())
 bot.cmds = 0
 bot.ratelimits = {"twitch": 0, "fortnite": 0, "rocketleague": 0, "pubg": 0}
 bot.vc = {}
 bot.game_cache = {}
 bot.uptime = 0
+bot.last_stream_notifs = 0
 
 if __name__ == "__main__":
     for m in modules:
@@ -104,6 +108,8 @@ async def on_command_error(ctx, error):
         await ctx.send("You can run this command in {} seconds.".format(round(error.retry_after, 1)))
     elif isinstance(error, KeyError) or isinstance(error, IndexError):
         await ctx.send("No results found.")
+    elif isinstance(error, TooManyRequestsError):
+        await ctx.send("Too many requests are being made right now. Please try again later.")
     elif isinstance(error, commands.BadArgument):
         if "notif add" in ctx.message.content:
             return await ctx.send("That Discord channel was not found. Please make sure you're not putting <> around it and that you're `#mention`ing it.")
@@ -112,7 +118,7 @@ async def on_command_error(ctx, error):
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
         e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}: {}\n```".format(type(error.original).__name__, error.original)
         await ctx.send(embed=e)
-        if message.guild:
+        if ctx.message.guild:
             TRIGGER_WEBHOOK("{0.author} {0.author.id} in {0.guild.name} {0.guild.id}: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error.original).__name__, error.original))
         else:
             TRIGGER_WEBHOOK("{0.author} {0.author.id} in DM: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error.original).__name__, error.original))
@@ -121,7 +127,7 @@ async def on_command_error(ctx, error):
         e = discord.Embed(color=discord.Color.red(), title="An error occurred")
         e.description = "Please report this error to the developers at https://discord.me/konomi.\n```\n{}: {}\n```".format(type(error).__name__, error)
         await ctx.send(embed=e)
-        if message.guild:
+        if ctx.message.guild:
             TRIGGER_WEBHOOK("{0.author} {0.author.id} in {0.guild.name} {0.guild.id}: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error).__name__, error))
         else:
             TRIGGER_WEBHOOK("{0.author} {0.author.id} in DM: error in `{0.content}`: `{1}: {2}`".format(ctx.message, type(error).__name__, error))
@@ -163,6 +169,16 @@ async def on_message(message):
                     log.info("detected toxic comment")
                     await message.delete()
                     await message.channel.send("{}, your message was deleted because it scored higher than the server's maximum toxicity range. (Score: {}/{})".format(message.author.name, round(score * 100, 1), bot.perspective[str(message.guild.id)]))
+    # bits
+#    if bot.bits.get(str(message.author.id)) is None:
+#        bot.bits[str(message.author.id)] = {"bits": 0, "multiplier_nonce": 0, "multiplier": 1.9, "nonce": 0, "votes": 0}
+#    if bot.bits[str(message.author.id)]['nonce'] + 60 > time.time():
+#        return
+#    value = randint(1, 3)
+#    if bot.bits[str(message.author.id)]['multiplier_nonce'] + 86400 > time.time():
+#        value = value * bot.bits[str(message.author.id)]['multiplier']
+#    bot.bits[str(message.author.id)]['bits'] += value
+#    bot.bits[str(message.author.id)]['nonce'] = time.time()
 
 @bot.event
 async def on_member_update(before, after):
@@ -201,26 +217,34 @@ async def poll2():
         logr.info("iter notifs")
         notifs = dict(bot.notifs).copy()
         streamers = SPLIT_EVERY(100, notifs)
+        page = 0
+        bot.last_stream_notifs = time.time()
         for split in streamers:
-            if len(split) < 1:
+            logr.info("Iter page #" + str(page))
+            page += 1
+            if len(list(split.keys())) < 1:
                 continue
             stream_data = await STREAM_REQUEST(bot, "/streams?user_id=" + "&user_id=".join(list(split.keys())))
-            if stream_data.status_code > 299:
+            if stream_data.status_code > 399:
                 TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(stream_data.status_code, stream_data.json()))
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
                 continue
-            await asyncio.sleep(1)
+            if len(stream_data.json()['data']) < 1:
+                logr.info("No live users in this split...")
+                await asyncio.sleep(3)
+                continue
+            await asyncio.sleep(3)
             user_data = await STREAM_REQUEST(bot, "/users?id=" + "&id=".join(map(lambda s: s['user_id'], stream_data.json()['data'])))
-            if user_data.status_code > 299:
+            if user_data.status_code > 399:
                 TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(stream_data.status_code, stream_data.json()))
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
                 continue
             games = Counter(map(lambda s: s['game_id'], stream_data.json()['data'])).keys()
             await asyncio.sleep(1)
             game_data = await STREAM_REQUEST(bot, "/games?id=" + "&id=".join(games))
-            if game_data.status_code > 299:
+            if game_data.status_code > 399:
                 TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(stream_data.status_code, stream_data.json()))
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
                 continue
             compiled = []
             for stream in stream_data.json()['data']:
@@ -252,79 +276,18 @@ async def poll2():
                     try:
                         await channel.send(bot.notifs[s['user']['id']][c]['message'], embed=e)
                         logr.info('notified in ' + str(c))
+                        bot.notifs[s['user']['id']][c]['last_stream_id'] = s['stream']['id']
                         await asyncio.sleep(1)
                     except discord.Forbidden:
                         del bot.notifs[s['user']['id']][c]
                         logr.info("forbidden... deleting")
                         continue
+            await asyncio.sleep(3)
+        logr.info("Iterated thru {} notifs in {} seconds".format(len(bot.notifs), time.time() - bot.last_stream_notifs))
         await asyncio.sleep(60)
 
-
-async def poll():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        log.info("[Notifs] iter stream notifications")
-        notif = dict(bot.notifs).copy()
-        ids_to_fetch = SPLIT_EVERY(100, notif)
-        for split in ids_to_fetch:
-            if len(split) < 1:
-                continue
-            r = await STREAM_REQUEST(bot, "/streams?user_id=" + "&user_id=".join(list(split.keys())))
-            if r.status_code > 299:
-                TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r.status_code, r.json()))
-                continue
-            for stream in r.json()['data']:
-                meta = dict(bot.notifs[stream['user_id']]).copy()
-                if stream['type'] == 'live':
-                    log.info('{} is live'.format(stream['user_id']))
-                    if len(list(meta.keys())) < 1:
-                        del bot.notifs[stream['user_id']]
-                        logging.info('[Notifs] user is empty... deleting')
-                        continue
-                    for channel_id in meta.keys():
-                        obj = meta[channel_id]
-                        if not obj['last_stream_id'] == stream['id']:
-                            bot.notifs[stream['user_id']][channel_id]['last_stream_id'] = stream['id']
-                            e = discord.Embed(color=discord.Color(0x6441A4))
-                            e.title = stream['title']
-                            game = "null"
-                            if bot.game_cache.get(stream['game_id']) is None:
-                                await asyncio.sleep(1)
-                                r2 = await STREAM_REQUEST(bot, "/games?id=" + stream['game_id'])
-                                if r2.status_code > 299:
-                                    TRIGGER_WEBHOOK("Stream request returned non-2xx status code: {}\n```json\n{}\n```".format(r2.status_code, r2.json()))
-                                    game = "Unknown (ratelimited)"
-                                else:
-                                    try:
-                                        game = r2.json()['data'][0]['name']
-                                    except:
-                                        game = "Unknown"
-                                    bot.game_cache[stream['game_id']] = game
-                            else:
-                                game = bot.game_cache[stream['game_id']]
-                            e.description = "Playing {} for {} viewers".format(game, stream['viewer_count'])
-                            e.set_image(url=stream['thumbnail_url'].format(width=1920, height=1080))
-                            try:
-                                channel = bot.get_channel(int(channel_id))
-                                if channel is None:
-                                    # channel doesn't exist; bot was probably kicked
-                                    del bot.notifs[stream['user_id']][channel_id]
-                                    log.info("[Notifs] Channel doesn't exist... deleting")
-                                    continue
-                                await channel.send(obj['message'], embed=e)
-                                log.info("[Notifs] Notified")
-                            except discord.Forbidden:
-                                log.info("[Notifs] Forbidden... deleting")
-                                del bot.notifs[stream['user_id']][channel_id]
-                                continue
-                            except:
-                                log.error(traceback.format_exc())
-                                TRIGGER_WEBHOOK("Failed to send message: ```\n{}\n```".format(traceback.format_exc()))
-                            await asyncio.sleep(2)
-                await asyncio.sleep(2)
-        await asyncio.sleep(60)
-
-bot.loop.create_task(poll2())
+if not settings.BETA:
+    bot.loop.create_task(poll2())
 try:
     if settings.BETA:
         bot.run(settings.BETA_TOKEN, bot=True, reconnect=True)

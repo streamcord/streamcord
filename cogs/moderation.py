@@ -50,7 +50,7 @@ class Moderation:
         try:
             await ctx.channel.purge(limit=amt + 1, check=lambda m: m.guild is not None)
         except discord.Forbidden:
-            return await ctx.send("I need the **Kick Members** permission to do this!")
+            return await ctx.send("I need the **Manage Messages** permission to do this!")
         except Exception as e:
             return await ctx.send("Something went wrong. `{}: {}`".format(type(e).__name__, e))
         else:
