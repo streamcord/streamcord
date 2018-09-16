@@ -1,5 +1,5 @@
 BETA = False # log in with beta token instead of main token?
-VERSION = "2.0"
+VERSION = "2.2"
 
 TOKEN = "discord bot token here"
 BETA_TOKEN = "optional discord bot token here for beta bot"
