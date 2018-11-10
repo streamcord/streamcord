@@ -34,3 +34,6 @@ We are not offering any support for people who want to clone TwitchBot for their
  - fortnitetracker.com
  - pubgtracker.com (not needed yet)
  - rocketleaguestats.com
+
+[![Bots for Discord](https://botsfordiscord.com/api/bot/375805687529209857/widget?theme=dark)](https://botsfordiscord.com/bots/375805687529209857)
+![Discord Bot List](https://discordbotlist.com/bots/375805687529209857/widget)
