@@ -1,11 +1,15 @@
 from discord.ext import commands
 from utils import settings
-import discord
+import discord, asyncio
 import time
 import traceback
 import json, io
 import textwrap
 from contextlib import redirect_stdout
+from collections import Counter, OrderedDict
+from operator import itemgetter
+from subprocess import PIPE
+import sys
 
 class Dev:
     def __init__(self, bot):
@@ -17,7 +21,7 @@ class Dev:
         return content.strip('` \n')
 
     def owner_only(ctx):
-        return ctx.message.author.id == 236251438685093889
+        return ctx.author.id in [236251438685093889, 388424304678666240]
 
     def check_fail(ctx):
         return False
@@ -64,10 +68,10 @@ class Dev:
             with redirect_stdout(stdout):
                 ret = await func()
         except Exception as e:
-            value = stdout.getvalue()
+            value = stdout.getvalue().replace(settings.TOKEN, "insert token here")
             await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
         else:
-            value = stdout.getvalue()
+            value = stdout.getvalue().replace(settings.TOKEN, "insert token here")
             try:
                 await ctx.message.add_reaction('✅')
             except:
@@ -83,6 +87,15 @@ class Dev:
     @commands.check(owner_only)
     async def error(self, ctx, *args):
         raise RuntimeError()
+
+    @commands.command()
+    @commands.check(owner_only)
+    async def test(self, ctx):
+        await self.bot.get_channel(467334911314100234).send("oof")
+
+    @commands.check(owner_only)
+    async def test2(self, ctx):
+        await self.bot.get_channel(1).send("oof")
 
     @commands.command()
     @commands.check(owner_only)
@@ -105,7 +118,7 @@ class Dev:
     @commands.command()
     async def shardinfo(self, ctx):
         try:
-            stuff = " All : Guilds: {g} Members: {m} Latency: {l}ms\n".format(g=len(self.bot.guilds), m=len(list(self.bot.get_all_members())), l=round(self.bot.latency*1000, 2))
+            stuff = "  All : Guilds: {g} Members: {m} Latency: {l}ms\n".format(g=len(self.bot.guilds), m=len(list(self.bot.get_all_members())), l=round(self.bot.latency*1000, 2))
             servers = {}
             members = {}
             for guild in self.bot.guilds:
@@ -120,10 +133,43 @@ class Dev:
                 pre = "  "
                 if ctx.guild.shard_id == s:
                     pre = "->"
-                stuff += "{p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=round(dict(self.bot.latencies)[int(s)] * 1000, 2))
+                if len(str(s)) == 2:
+                    stuff += "{p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=round(dict(self.bot.latencies)[int(s)] * 1000, 2))
+                else:
+                    stuff += " {p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=round(dict(self.bot.latencies)[int(s)] * 1000, 2))
             await ctx.send("```prolog\n{}```".format(stuff))
         except:
             await ctx.send(traceback.format_exc())
+
+    @commands.command()
+    async def guildregions(self, ctx):
+        unsorted = Counter(map(lambda g: str(g.region), self.bot.guilds))
+        data = OrderedDict(sorted(unsorted.items(), key=itemgetter(1), reverse=True))
+        stuff = ""
+        max_len = len(max(data.keys(), key=len))
+        pct_max_len = len(str(max(data.values())))
+        for reg in data.keys():
+            wsp = max_len - len(reg)
+            pct = round(data[reg] / len(self.bot.guilds) * 100, 1)
+            pct_wsp = pct_max_len - len(str(data[reg]))
+            stuff += "{}{}: {} {} --> {}%\n".format(' '*wsp, reg.title().strip('-'), data[reg], ' '*pct_wsp, pct)
+        await ctx.send("```prolog\n{}```".format(stuff))
+
+    @commands.command()
+    @commands.check(owner_only)
+    async def speedtest(self, ctx):
+        m = await ctx.send("Running speedtest... <a:updating:403035325242540032>")
+        proc = await asyncio.create_subprocess_shell("speedtest-cli --simple", stdin=None, stderr=PIPE, stdout=PIPE)
+        out = (await proc.stdout.read()).decode('utf-8').strip()
+        await m.edit(content="```prolog\n{}```".format(out))
+
+    @commands.command()
+    @commands.check(owner_only)
+    async def restart(self, ctx):
+        await ctx.send("Restarting...")
+        sys.exit(0)
+        return await ctx.send("apparently the restart command doesn't work")
+
 
 def setup(bot):
     bot.add_cog(Dev(bot))

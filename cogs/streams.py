@@ -27,11 +27,9 @@ class Streams:
             r = r.json()["data"][0]
             u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + user)
             u.raise_for_status()
-            await asyncio.sleep(1)
             u = u.json()["data"][0]
             g = TWAPI_REQUEST("https://api.twitch.tv/helix/games?id=" + r["game_id"])
             g.raise_for_status()
-            await asyncio.sleep(1)
             try:
                 g = g.json()["data"][0]
             except:
@@ -40,7 +38,7 @@ class Streams:
             e.title = r["title"]
             e.description = """
 Playing {2} for {0} viewers
-**[Watch on Twitch](https://twitch.tv/{1})** or type `twitch watch {1}`\n
+**[Watch on Twitch](https://twitch.tv/{1})** or type `twitch stream watch {1}`\n
 Stream Preview:
     """.format(r["viewer_count"], u["login"], g["name"])
             e.set_image(url=r["thumbnail_url"].format(width="1920", height="1080"))
@@ -68,16 +66,14 @@ Stream Preview:
         except:
             return await ctx.send("That game could not be found.")
         game = g['name']
-        await asyncio.sleep(1)
         s = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?game_id=" + g['id'])
         s.raise_for_status()
         if len(s.json()['data']) < 1:
             return await ctx.send("Nobody is streaming that game.")
         stream = choice(s.json()['data'])
-        await asyncio.sleep(1)
         u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?id=" + stream['user_id'])
         u.raise_for_status()
-        await ctx.send("Check out {0} playing {1} for {2} viewers:\nhttps://twitch.tv/{0}".format(u.json()['data'][0]['display_name'], game, stream['viewer_count']))
+        await ctx.send("Check out {0} playing {1} for {2} viewers:\nhttps://twitch.tv/{0}".format(u.json()['data'][0]['display_name'].replace("_", "\\_"), game, stream['viewer_count']))
 
 
     @stream.command()
@@ -89,11 +85,9 @@ Stream Preview:
         stream = choice(r.json()['data'])
         u = TWAPI_REQUEST("https://api.twitch.tv/helix/users?id=" + stream['user_id'])
         u.raise_for_status()
-        await asyncio.sleep(1)
         u = u.json()["data"][0]
         g = TWAPI_REQUEST("https://api.twitch.tv/helix/games?id=" + stream["game_id"])
         g.raise_for_status()
-        await asyncio.sleep(1)
         g = g.json()["data"][0]
         return await ctx.send("Check out {0} playing {1} for {2} viewers:\nhttps://twitch.tv/{0}".format(u['login'], g['name'], stream['viewer_count']))
 

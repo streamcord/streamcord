@@ -15,14 +15,14 @@ class General:
     async def cmds(self, ctx):
         await ctx.send(embed=presence.send_commands_content())
 
+    @commands.cooldown(rate=1, per=3)
     @commands.command(pass_context=True)
     async def info(self, ctx):
-        await ctx.trigger_typing()
         e = discord.Embed(color=discord.Color(0x6441A4), title="<:twitch:404633403603025921> TwitchBot Stats")
         u = GET_UPTIME(self.bot.uptime)
         e.add_field(name="Uptime", value=u, inline=False)
+        e.add_field(name="Usage", value="**•** {} servers\n**•** {} users\n**•** {} commands run\n**•** {} live checks\n**•** {} streamer notifications".format(len(self.bot.guilds), len(list(self.bot.get_all_members())), self.bot.cmds, len(self.bot.livecheck), len(self.bot.notifs)))
         e.add_field(name="Version", value="Python {}\ndiscord.py {}".format(sys.version.split()[0], discord.__version__))
-        e.add_field(name="Usage", value="**•** {} servers\n**•** {} users\n**•** {} commands run\n**•** {} live checks\n**•** {} streamer notifications".format(len(self.bot.guilds), len(list(self.bot.get_all_members())), self.bot.cmds, len(self.bot.livecheck), len(self.bot.notifs)), inline=False)
         try:
             e.add_field(name="Shard Info", value="**•** Current shard: {} (real: {})\n**•** Shard latency: {}ms\n**•** Total shards: {}".format(ctx.guild.shard_id + 1, ctx.guild.shard_id, round(self.bot.latency*1000), self.bot.shard_count))
         except:
@@ -31,15 +31,18 @@ class General:
         e.add_field(name="System", value="""
 **•** {}% CPU
 **•** {}/{}MB memory used
-        """.format(psutil.cpu_percent(interval=0.1), round(mem.used/1000000), round(mem.total/1000000)))
-        e.add_field(name="Website", value="https://twitch.disgd.pw", inline=False)
-        e.add_field(name="Discord", value="https://discord.me/konomi", inline=False)
-        e.add_field(name="Upvote", value="https://discordbots.org/bot/twitch/vote", inline=False)
-        e.add_field(name="Donate", value="https://paypal.me/akireee", inline=False)
-        e.add_field(name="Developer", value="Akira#4587 • [Website](https://disgd.pw)", inline=False)
-        e.set_thumbnail(url=self.bot.user.avatar_url)
+        """.format(psutil.cpu_percent(interval=1), round(mem.used/1000000), round(mem.total/1000000)))
+        e.add_field(name="Links", value="""
+**•** Website: https://twitchbot.io
+**•** Discord: https://discord.gg/UNYzJqV
+**•** Upvote: https://discordbots.org/bot/twitch/vote
+**•** Donate: https://patreon.com/devakira
+        """, inline=False)
+        e.add_field(name="Developer", value="Akira#4587", inline=False)
+        e.add_field(name="Patrons", value=", ".join(map(lambda m: str(m), filter(lambda m: 460491951729278988 in map(lambda r: r.id, m.roles) and not 424762262775922692 in map(lambda r: r.id, m.roles), self.bot.get_guild(294215057129340938).members))))
         await ctx.send(embed=e)
 
+    @commands.cooldown(rate=1, per=3)
     @commands.command(pass_context=True)
     async def ping(self, ctx):
         t = time.time()
@@ -52,6 +55,7 @@ class General:
         await ctx.send("**{}**, you can invite me to a server with this link:\n**<https://discordapp.com/api/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot>**".format(ctx.message.author.name))
         await ctx.send("You can also join the support server here:\n**<https://discord.me/konomi>**")
 
+    @commands.cooldown(rate=1, per=3)
     @commands.command(pass_context=True)
     async def status(self, ctx):
         await ctx.trigger_typing()

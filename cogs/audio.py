@@ -2,7 +2,10 @@ from discord.ext import commands
 import discord, asyncio
 import youtube_dl
 import logging, traceback
+import requests
+from utils import settings
 from utils.functions import TWAPI_REQUEST, DBOTS_REQUEST
+import datadog
 
 
 ytdl_format_options = {
@@ -62,14 +65,17 @@ class Audio:
         member = self.bot.get_guild(294215057129340938).get_member(ctx.author.id)
         has_role = False
         if member is not None:
-            has_role = discord.utils.find(lambda r: r.id == 460491951729278988, member.roles) is not None # gold patron role
+            has_role = discord.utils.find(lambda r: r.id in self.bot.donator_roles, member.roles) is not None # premium role
         if not has_role:
-            r = DBOTS_REQUEST("/bots/375805687529209857/check?userId=" + str(author.id))
-            if r.status_code == 200 and not r.json()['voted'] == 1:
-                await ctx.send("<:twitch:404633403603025921> You need to upvote TwitchBot to listen to streams! Upvote here -> <https://discordbots.org/bot/375805687529209857/vote>. If you just upvoted, please allow up to 5 minutes for the upvote to process.\n**Want to skip upvoting?** You can become a patron at <https://patreon.com/devakira> to listen without upvoting.")
-                return
+            r = requests.get("http://dash.twitchbot.io/api/votes/user/{}".format(ctx.author.id), headers={"Authorization": settings.DASHBOARD})
+            if r.status_code != 200 or r.json()['active'] == False:
+                # Fallback in case the dashboard failed
+                r = DBOTS_REQUEST("/bots/375805687529209857/check?userId=" + str(author.id))
+                if r.status_code == 200 and not r.json()['voted'] == 1:
+                    await ctx.send("<:twitch:404633403603025921> You need to upvote TwitchBot to listen to streams! Upvote here -> <https://discordbots.org/bot/twitch/vote>. If you just upvoted, please allow up to 5 minutes for the upvote to process.\n**Want to skip upvoting?** You can become a patron at <https://patreon.com/devakira> to listen without upvoting.")
+                    return
 
-        m = await ctx.send("Please wait... <a:loading:414007832849940482>")
+        m = await ctx.send("Please wait... <a:loading:515632705262583819>")
         try:
             try:
                 vc = await voice_channel.connect()
@@ -79,14 +85,12 @@ class Audio:
                 await asyncio.sleep(2)
                 vc = await voice_channel.connect()
         except Exception as ex:
-            await ctx.send("{}: {}".format(type(ex).__name__, ex))
-            #await ctx.send("I'm already in a voice channel. Please stop the existing stream and then start it in the new channel.")
+            return await ctx.send("A {} occurred: {}".format(type(ex).__name__, ex))
         try:
             r = TWAPI_REQUEST("https://api.twitch.tv/helix/streams?user_login=" + url.split("twitch.tv/")[1])
             if len(r.json()["data"]) < 1:
                 return await m.edit(content="<:twitch:404633403603025921> This user doesn't exist or is not currently streaming. If you entered the channel's url, try again with just the name.")
             r = r.json()["data"][0]
-            await asyncio.sleep(0.5)
             r2 = TWAPI_REQUEST("https://api.twitch.tv/helix/users?login=" + url.split("twitch.tv/")[1])
             if len(r2.json()["data"]) < 1:
                 return await m.edit(content="<:twitch:404633403603025921> This user doesn't exist or is not currently streaming. If you entered the channel's url, try again with just the name.")
@@ -96,7 +100,7 @@ class Audio:
             e.set_image(url=r['thumbnail_url'].format(width=1920, height=1080))
             e.set_footer(icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url, text=str(ctx.author) + " - Type 'twitch leave' to stop the stream")
             player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-            vc.play(player, after=lambda e: logging.error("An audio player error occurred: " + e) if e else None)
+            vc.play(player, after=lambda e: logging.error("{}: {}".format(type(e).__name__, e)) if e else None)
             self.bot.vc[ctx.message.guild.id] = e
             await m.edit(content=None, embed=e)
         except youtube_dl.DownloadError:
@@ -107,7 +111,7 @@ class Audio:
             await ctx.send("{}: {}".format(type(ex).__name__, ex))
             #await ctx.send("I'm already in a voice channel. Please stop the existing stream and then start it in the new channel.")
         except:
-            await ctx.send("A fatal exception occurred:\n```\n" + traceback.format_exc() + "\n```")
+            raise
 
     @commands.command(pass_context=True, aliases=["stop"])
     async def leave(self, ctx):

@@ -40,8 +40,10 @@ class GameStats:
             res = r.json()['any'] or r.json()['us'] or r.json()['eu'] or r.json()['kr']
             stats = {'overall': res['stats']['competitive']['overall_stats'], 'game': res['stats']['competitive']['game_stats']}
             e = discord.Embed(color=0x2196F3, title="Overwatch Stats (Competitive)")
-            e.set_author(name=username.replace("-", "#").replace('_', ' '), icon_url=stats['overall'].get('avatar'), url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
-            e.set_thumbnail(url=stats['overall'].get('avatar'))
+            #e.set_author(name=username.replace("-", "#").replace('_', ' '), icon_url=stats['overall'].get('avatar'), url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
+            e.set_author(name=username.replace("-", "#").replace('_', ' '), url="https://playoverwatch.com/en-us/career/{}/{}".format(platform, username))
+            #e.set_thumbnail(url=stats['overall'].get('avatar'))
+            e.set_footer(text="Powered by owapi.net")
             e.description = "{} hours played in {} games".format(stats['game']['time_played'], round(stats['game']['games_played']))
             e.add_field(name="Competitive Rank", value="{} {}".format(self.emoji[stats['overall']['tier']], stats['overall']['comprank']))
             e.add_field(name="Level", value=str((stats['overall']['prestige'] * 100) + stats['overall']['level']))
@@ -49,8 +51,8 @@ class GameStats:
             e.add_field(name="Matches Played", value="• {total} total\n• {win} wins\n• {loss} losses\n• {wr}% win rate".format(total=stats['overall']['games'], win=stats['overall']['wins'], loss=stats['overall']['losses'], wr=stats['overall']['win_rate']))
             e.add_field(name="Kills/Deaths", value="• {kd} kills per death\n• {el} kills\n• {de} deaths".format(kd=stats['game']['kpd'], el=round(stats['game']['eliminations']), de=round(stats['game']['deaths'])))
             e.add_field(name="Medals", value="• {medals_gold} gold\n• {medals_silver} silver\n• {medals_bronze} bronze".format(**stats['game']))
-            e.set_footer(text="Powered by owapi.net")
         except:
+            e.set_footer(text="Powered by owapi.net • Some data may be missing or incomplete")
             await ctx.send("Your profile data is incomplete. If your profile is private, follow the steps at <https://dotesports.com/overwatch/news/ow-public-private-profile-25347> to make it public so you can view your stats.")
         await ctx.send(embed=e)
 
@@ -69,7 +71,7 @@ class GameStats:
             await ctx.send("An error occurred: " + str(r.status_code))
             return
         try:
-            stats = r.json()['stats']['p2'] or r.json()['stats']['p10'] or r.json()['stats']['p9']
+            stats = r.json()['stats'].get('p2') or r.json()['stats'].get('p10') or r.json()['stats'].get('p9')
         except JSONDecodeError:
             return await ctx.send("Player not found. Check the spelling of the username or try a different platform.")
         e = discord.Embed(color=0x2196F3, title="Fortnite Stats")
@@ -80,35 +82,6 @@ class GameStats:
         e.add_field(name="Standings", value="• {} wins\n• {} times reached top 3\n• {} times reached top 5\n• {} times reached top 10\n• {} times reached top 25".format(stats['top1']['value'], stats['top3']['value'], stats['top5']['value'], stats['top10']['value'], stats['top25']['value']))
         e.add_field(name="Win Percentage", value="{}%".format(round(stats['top1']['valueInt'] / stats['matches']['valueInt'], 2) * 100))
         e.set_footer(text='Powered by fortnitetracker.com')
-        await ctx.send(embed=e)
-
-    @commands.command(pass_context=True, aliases=["rl"])
-    @commands.cooldown(rate=1, per=2)
-    async def rocketleague(self, ctx, platform, *, username):
-        await ctx.trigger_typing()
-        if not platform in ["pc", "psn", "xbl"]:
-            await ctx.send("Platform must be one of `pc`, `psn`, or `xbl`.")
-            return
-        elif platform == "pc":
-            platform = 1
-        elif platform == "psn":
-            platform = 2
-        elif platform == "xbl":
-            platform = 3
-        r = await RLS_REQUEST(self, "/player?unique_id={}&platform_id={}".format(username, platform))
-        if r.status_code == 404:
-            await ctx.send("Player not found. Please enter the username or Steam profile link of the player, and choose the correct platform.")
-            return
-        elif r.status_code != 200:
-            await ctx.send("An error occurred: {}".format(r.status_code))
-            return
-        res = r.json()
-        e = discord.Embed(color=0x2196F3, title="Rocket League Stats")
-        e.set_author(name=res['displayName'] + " on " + res['platform']['name'], url=res['profileUrl'], icon_url=res['avatar'])
-        e.add_field(name="Stats", value="• {wins} wins\n• {goals} goals\n• {assists} assists\n• {saves} saves\n• {shots} shots taken\n• {mvps} times MVP".format(**res['stats']))
-        e.set_thumbnail(url=res['avatar'])
-        e.set_image(url=res['signatureUrl'])
-        e.set_footer(text="Powered by rocketleaguestats.com")
         await ctx.send(embed=e)
 
     @commands.command(pass_context=True)

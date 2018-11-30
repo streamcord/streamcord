@@ -4,7 +4,7 @@ from utils.functions import TWAPI_REQUEST
 from urllib.parse import urlencode
 from random import choice
 import asyncio
-import logging
+import logging, traceback
 import re
 
 class Clips:
@@ -27,7 +27,7 @@ class Clips:
         if "--trending" in args:
             trending = "&trending=true"
         await ctx.trigger_typing()
-        r = TWAPI_REQUEST("https://api.twitch.tv/kraken/clips/top?channel=" + twitch_user + trending)
+        r = TWAPI_REQUEST("https://api.twitch.tv/kraken/clips/top?limit=50&channel=" + twitch_user + trending)
         if r.status_code != 200:
             await ctx.send("An error Occurred: {}".format(r.status_code))
         elif len(r.json()['clips']) < 1:
@@ -35,13 +35,19 @@ class Clips:
             return
         else:
             clip = choice(r.json()['clips'])
-            await ctx.send("Check out {} playing {}:\n{}".format(clip['broadcaster']['display_name'], clip['game'], clip['url'].split('?')[0]))
+            m = await ctx.send("Check out {} playing {}:\n{}".format(clip['broadcaster']['display_name'], clip['game'], clip['url'].split('?')[0]))
+            if self.bot.clip_votes.get(clip['slug']) is None:
+                self.bot.clip_votes[clip['slug']] = {"meta": clip, "votes": []}
+            try:
+                await m.add_reaction("👍")
+            except discord.Forbidden:
+                pass
 
     @clips.command(pass_context=True, aliases=["popular", "top"])
     @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
     async def trending(self, ctx):
         await ctx.trigger_typing()
-        r = TWAPI_REQUEST("https://api.twitch.tv/kraken/clips/top")
+        r = TWAPI_REQUEST("https://api.twitch.tv/kraken/clips/top?limit=50")
         if r.status_code != 200:
             await ctx.send("An error Occurred: {}".format(r.status_code))
         elif len(r.json()['clips']) < 1:
@@ -49,7 +55,13 @@ class Clips:
             return
         else:
             clip = choice(r.json()['clips'])
-            await ctx.send("Check out {} playing {}:\n{}".format(clip['broadcaster']['display_name'], clip['game'], clip['url'].split('?')[0]))
+            m = await ctx.send("Check out {} playing {}:\n{}".format(clip['broadcaster']['display_name'], clip['game'], clip['url'].split('?')[0]))
+            if self.bot.clip_votes.get(clip['slug']) is None:
+                self.bot.clip_votes[clip['slug']] = {"meta": clip, "votes": []}
+            try:
+                await m.add_reaction("👍")
+            except discord.Forbidden:
+                pass
 
     @clips.command(pass_context=True, aliases=["playing"])
     @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)
@@ -62,12 +74,13 @@ class Clips:
         if r.status_code != 200:
             await ctx.send("An error Occurred: {}-1".format(r.status_code))
             return
+        elif r.json().get('games') == None:
+            return await ctx.send('That game doesn\'t exist.')
         elif len(r.json()['games']) < 1:
             await ctx.send("No clips found for that game.")
             return
         game = r.json()['games'][0]['name']
-        await asyncio.sleep(1)
-        r = TWAPI_REQUEST("https://api.twitch.tv/kraken/clips/top?" + urlencode({"game": game}) + trending)
+        r = TWAPI_REQUEST("https://api.twitch.tv/kraken/clips/top?limit=50&" + urlencode({"game": game}) + trending)
         if r.status_code != 200:
             await ctx.send("An error Occurred: {}-2".format(r.status_code))
             return
@@ -75,8 +88,66 @@ class Clips:
             await ctx.send("No clips found for that game.")
             return
         clip = choice(r.json()['clips'])
-        await ctx.send("Check out {} playing {}:\n{}".format(clip['broadcaster']['display_name'], clip['game'], clip['url'].split('?')[0]))
+        m = await ctx.send("Check out {} playing {}:\n{}".format(clip['broadcaster']['display_name'], clip['game'], clip['url'].split('?')[0]))
+        if self.bot.clip_votes.get(clip['slug']) is None:
+            self.bot.clip_votes[clip['slug']] = {"meta": clip, "votes": []}
+        try:
+            await m.add_reaction("👍")
+        except discord.Forbidden:
+            pass
+
+    @clips.command()
+    async def uservoted(self, ctx):
+        clips = sorted(self.bot.clip_votes, key=lambda c: len(self.bot.clip_votes[c]['votes']))
+        try:
+            clip = choice(clips[-20:]) # get one of the top 10
+        except IndexError:
+            return await ctx.send("Nobody has voted on any clips yet. Come back later.")
+        clip = self.bot.clip_votes[clip]
+        m = await ctx.send("{} votes on this clip by {}:\n{}".format(len(clip['votes']), clip['meta']['broadcaster']['display_name'], clip['meta']['url'].split('?')[0]))
+        try:
+            await m.add_reaction("👍")
+        except discord.Forbidden:
+            pass
 
 
 def setup(bot):
     bot.add_cog(Clips(bot))
+
+    @bot.event
+    async def on_reaction_add(reaction, user):
+        if not reaction.message.author.id == bot.user.id:
+            return
+        elif user.bot:
+            return
+        elif user.id == bot.user.id:
+            return
+        elif not reaction.emoji == "👍":
+            return
+        elif not "clips.twitch.tv" in reaction.message.content:
+            return
+        clip_slug = reaction.message.content.split("\n")[-1].split('/')[-1]
+        if str(user.id) in bot.clip_votes[clip_slug]['votes']:
+            return
+        try:
+            bot.clip_votes[clip_slug]['votes'].append(str(user.id))
+        except ValueError:
+            await reaction.message.channel.send("**{}**, your upvote could\'nt be processed.".format(user.name))
+
+    @bot.event
+    async def on_reaction_remove(reaction, user):
+        if not reaction.message.author.id == bot.user.id:
+            return
+        elif user.bot:
+            return
+        elif user.id == bot.user.id:
+            return
+        elif not reaction.emoji == "👍":
+            return
+        elif not "clips.twitch.tv" in reaction.message.content:
+            return
+        clip_slug = reaction.message.content.split("\n")[-1].split('/')[-1]
+        try:
+            bot.clip_votes[clip_slug]['votes'].remove(str(user.id))
+        except ValueError:
+            pass
