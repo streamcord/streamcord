@@ -1,11 +1,13 @@
 # TwitchBot
 
-![](https://discordbots.org/api/widget/servers/375805687529209857.svg)
-![](https://discordbots.org/api/widget/lib/375805687529209857.svg)
+![dbl servers](https://discordbots.org/api/widget/servers/375805687529209857.svg)
+![dbl library](https://discordbots.org/api/widget/lib/375805687529209857.svg)
 
 Browse Twitch, get stream notifications, and listen to streams right from your Discord server.
 
 We have made TwitchBot open-sourced to show how a Discord bot can connect to and interface with the API, and so that the Discord community can help contribute to and improve TwitchBot.
+
+> Certain parts of TwitchBot's code have been redacted for future updates as of 1/20/19.
 
 ## Invite TwitchBot
 
