@@ -46,8 +46,7 @@ class Streamlabs(commands.Cog):
         await self.sio.connect(f'wss://sockets.streamlabs.com?token={token}', transports=['websocket'])
 
     async def manage_connections(self):
-        token = ""
-        await self.websocket_connect(token)
+        await self.websocket_connect(settings.StreamlabsWebsocketKey)
 
 def setup(bot):
     #bot.add_cog(Streamlabs(bot))
