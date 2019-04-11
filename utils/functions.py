@@ -1,13 +1,15 @@
 from colorama import Fore, Back, Style
 from colorama import init as color_init
+from textwrap import dedent
 from os import name as os_name
 import time
 import logging
 
-def GetBotUptime(u):
-    t = time.time() - u
-    st = time.gmtime(t)
-    return "{1} days, {0.tm_hour} hours, and {0.tm_min} minutes".format(st, st.tm_mday - 1)
+
+def GetBotUptime(start_time):
+    t = time.gmtime(time.time() - start_time)
+    return f"{t.tm_mday - 1} days, {t.tm_hour} hours, and {t.tm_min} minutes"
+
 
 def SplitIterable(length, iterable):
     items = []
@@ -23,20 +25,16 @@ def SplitIterable(length, iterable):
         items.append(current_item)
     return items
 
+
 def FormatOWAPIUser(username):
-    u = username.replace("#", "-").replace(" ", "_")
-    """fmt = ""
-    for let in u:
-        for l in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-":
-            if let in l:
-                fmt += let
-    return fmt"""
-    return u
+    return username.replace("#", "-").replace(" ", "_")
+
 
 def ReplaceAllInStr(text, dic):
     for i, j in dic.items():
         text = text.replace(str(i), str(j))
     return text
+
 
 def CheckMultiplePerms(permissions, *args):
     for arg in args:
@@ -44,9 +42,11 @@ def CheckMultiplePerms(permissions, *args):
             return arg.replace("_", " ").capitalize()
     return True
 
+
 class LogFilter(logging.Filter):
     def filter(self, record):
-        return not "unknown event" in record.msg.lower()
+        return "unknown event" not in record.msg.lower()
+
 
 class ColorFormatter(logging.Formatter):
     def __init__(self, fmt, datefmt=None):
@@ -64,12 +64,17 @@ class ColorFormatter(logging.Formatter):
         record.levelname = self.levels.get(lv, lv)
         return super().format(record)
 
+
 def initColoredLogging():
     if os_name == 'nt':
         color_init(autoreset=True)
     stream = logging.StreamHandler()
     stream.setFormatter(ColorFormatter(
-        f"%(levelname)s {Style.RESET_ALL+Style.DIM}%(name)s @ %(asctime)s{Style.RESET_ALL} >> %(message)s",
+        dedent(
+            f"""\
+            %(levelname)s {Style.RESET_ALL+Style.DIM}\
+            %(name)s @ %(asctime)s{Style.RESET_ALL} >> %(message)s\
+        """),
         datefmt='%H:%M.%S'
     ))
     return stream

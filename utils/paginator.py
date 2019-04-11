@@ -2,6 +2,7 @@ import asyncio
 import discord
 import math
 
+
 class EmbedPaginator:
     def __init__(self, embed: discord.Embed, per_page: int = 10, timeout: int = 90):
         self.embed = embed
@@ -13,7 +14,9 @@ class EmbedPaginator:
         if type(embed.fields) == discord.Embed.Empty:
             raise ValueError("Embed needs at least one field.")
         self._count = math.ceil(len(embed.fields) / per_page)
-        self._pages = [self.embed.fields[x:x+per_page] for x in range(0, len(self.embed.fields), per_page)]
+        self._pages = [
+            self.embed.fields[x:x+per_page] for x in range(0, len(self.embed.fields), per_page)
+        ]
 
     def _update_page(self, page: int):
         p = self._pages[page]
@@ -31,7 +34,11 @@ class EmbedPaginator:
         await message.add_reaction("▶")
         while True:
             try:
-                reaction, user = await ctx.bot.wait_for('reaction_add', timeout=self.timeout, check = lambda r, u: r.message.channel == ctx.channel and u == ctx.author and r.message.id == message.id)
+                reaction, user = await ctx.bot.wait_for(
+                    'reaction_add',
+                    timeout=self.timeout,
+                    check=lambda r, u: r.message.channel == ctx.channel and u == ctx.author and r.message.id == message.id
+                )
                 if str(reaction.emoji) == "◀":
                     if self._current_page == 0:
                         pass
@@ -53,8 +60,9 @@ class EmbedPaginator:
                 await message.delete()
                 await ctx.message.add_reaction("⏱")
                 break
-            except:
+            except Exception:
                 raise
+
 
 class DiscordPaginationExtender:
     def __init__(self, pages, timeout: int = 90):
@@ -91,5 +99,5 @@ class DiscordPaginationExtender:
                 await message.delete()
                 await ctx.message.add_reaction("⏱")
                 break
-            except:
+            except Exception:
                 raise

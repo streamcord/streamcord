@@ -9,15 +9,17 @@ import datadog
 import rethinkdb as r
 r = r.RethinkDB()
 
+
 async def change_presence(bot):
     if settings.UseBetaBot:
         await bot.change_presence(status=discord.Status.idle, activity=discord.Game("with new features"))
     else:
         await bot.change_presence(activity=discord.Streaming(name="!twitch help · twitchbot.io", url="https://twitch.tv/twitchbot_discord"))
 
+
 async def post_stats(bot):
     async with aiohttp.ClientSession() as session:
-        clindex = round(min(bot.shard_ids)/10) # 10 shards per cluster
+        clindex = round(min(bot.shard_ids)/10)  # 10 shards per cluster
         payload = {
             "cluster_index": clindex,
             "guild_count": len(bot.guilds),
@@ -28,8 +30,14 @@ async def post_stats(bot):
         }
         if payload['cluster_index'] == 0:
             datadog.statsd.open_buffer()
-            datadog.statsd.gauge('bot.notifications', r.table('notifications').count().run(bot.rethink, durability="soft"))
-            datadog.statsd.gauge('bot.live_checks', r.table('live_role').count().run(bot.rethink, durability="soft"))
+            datadog.statsd.gauge(
+                'bot.notifications',
+                r.table('notifications').count().run(bot.rethink, durability="soft")
+            )
+            datadog.statsd.gauge(
+                'bot.live_checks',
+                r.table('live_role').count().run(bot.rethink, durability="soft")
+            )
             datadog.statsd.close_buffer()
         headers = {
             "X-Auth-Key": settings.DashboardKey

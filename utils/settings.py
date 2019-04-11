@@ -6,11 +6,13 @@ Version = "2.4.1"
 Token = ""
 BetaToken = ""
 
+
 class BotList:
     DiscordBotsORG = ""
     BotsDiscordGG = ""
     BotsForDiscordCOM = ""
     DiscordBotListCOM = ""
+
 
 class Twitch:
     Secret = ""
@@ -18,21 +20,26 @@ class Twitch:
     StreamSecret = ""
     StreamClientID = ""
 
+
 class Streamlabs:
     Secret = ""
     ClientID = ""
+
 
 class TRN:
     FortniteAPISecret = ""
     PUBGAPISecret = ""
 
+
 class Datadog:
     APIKey = ""
     AppKey = ""
 
+
 class RethinkDB:
     Host = "127.0.0.1"
     Port = 28015
+
 
 DonatorRoles = []
 BannedUsers = []
