@@ -2,11 +2,3 @@ __pycache__/
 *.pyc
 *.json
 PUBLIC_VERSION_DO_NOT_EDIT
-cogs/audio.py
-cogs/clips.py
-cogs/filter.py
-cogs/live_check.py
-cogs/notifs.py
-cogs/streamlabs.py
-utils/functions.py
-utils/presence.py

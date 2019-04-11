@@ -1,21 +1,45 @@
-BETA = False # log in with beta token instead of main token?
-VERSION = "2.2"
+from os import name as osname
 
-TOKEN = "discord bot token here"
-BETA_TOKEN = "optional discord bot token here for beta bot"
+UseBetaBot = (osname == 'nt')
+Version = "2.4.1"
+
+Token = ""
+BetaToken = ""
 
 class BotList:
-    DBL = "https://discordbots.org token"
+    DiscordBotsORG = ""
+    BotsDiscordGG = ""
+    BotsForDiscordCOM = ""
+    DiscordBotListCOM = ""
 
 class Twitch:
-    SECRET = "twitch api secret"
-    STREAM_SECRET = "second twitch api secret for streamer notifs"
-    ID = "twitch api id"
-    STREAM_ID = "second twitch api id for streamer notifs"
+    Secret = ""
+    ClientID = ""
+    StreamSecret = ""
+    StreamClientID = ""
+
+class Streamlabs:
+    Secret = ""
+    ClientID = ""
 
 class TRN:
-    FORTNITE_SECRET = "https://fornitetracker.com token"
-    PUBG_SECRET = "https://pubgtracker.com token (currently unused)"
+    FortniteAPISecret = ""
+    PUBGAPISecret = ""
 
-class RLS:
-    SECRET = "https://rocketleaguestats.com token"
+class Datadog:
+    APIKey = ""
+    AppKey = ""
+
+class RethinkDB:
+    Host = "127.0.0.1"
+    Port = 28015
+
+DonatorRoles = []
+BannedUsers = []
+BotOwners = []
+IGDB = ""
+DashboardKey = ""
+Semaphore = ""
+WebhookURL = ""
+Crowdin = ""
+PerspectiveAPIKey = ""

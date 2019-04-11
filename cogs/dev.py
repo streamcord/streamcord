@@ -1,6 +1,6 @@
 from discord.ext import commands
-from utils import settings
-import discord, asyncio
+from utils import settings, lang, paginator, presence
+import discord, asyncio, aiohttp
 import time
 import traceback
 import json, io
@@ -10,10 +10,17 @@ from collections import Counter, OrderedDict
 from operator import itemgetter
 from subprocess import PIPE
 import sys
+import datadog, logging
+import websockets.exceptions as ws
+import rethinkdb as r
+r = r.RethinkDB()
 
-class Dev:
+class Dev(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        if not settings.UseBetaBot:
+            bot.loop.create_task(self.background_dd_report())
+        bot.loop.create_task(self.daily_bot_stats())
 
     def cleanup_code(self, content):
         if content.startswith('```') and content.endswith('```'):
@@ -21,26 +28,12 @@ class Dev:
         return content.strip('` \n')
 
     def owner_only(ctx):
-        return ctx.author.id in [236251438685093889, 388424304678666240]
+        return ctx.author.id in settings.BotOwners
 
-    def check_fail(ctx):
-        return False
-
-    @commands.command(hidden=True, name="reload")
-    async def _reload(self, ctx, cog):
-        if not ctx.author.id == 236251438685093889: return
-        try:
-            self.bot.unload_extension(cog)
-            self.bot.load_extension(cog)
-        except Exception as e:
-            await ctx.send("Failed to reload cog: `{}`".format(e))
-        else:
-            await ctx.send("Successfully reloaded cog.")
-
-    @commands.command(name="eval")
+    @commands.check(owner_only)
+    @commands.command(name="eval", hidden=True)
     async def _eval(self, ctx, *, body: str):
-        if not ctx.author.id == 236251438685093889: return
-
+        if not ctx.author.id in settings.BotOwners: return
         env = {
             'bot': self.bot,
             'ctx': ctx,
@@ -68,10 +61,10 @@ class Dev:
             with redirect_stdout(stdout):
                 ret = await func()
         except Exception as e:
-            value = stdout.getvalue().replace(settings.TOKEN, "insert token here")
+            value = stdout.getvalue().replace(settings.Token, "insert token here")
             await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
         else:
-            value = stdout.getvalue().replace(settings.TOKEN, "insert token here")
+            value = stdout.getvalue().replace(settings.Token, "insert token here")
             try:
                 await ctx.message.add_reaction('✅')
             except:
@@ -84,43 +77,10 @@ class Dev:
                 await ctx.send(f'```py\n{value}{ret}\n```')
 
     @commands.command()
-    @commands.check(owner_only)
-    async def error(self, ctx, *args):
-        raise RuntimeError()
-
-    @commands.command()
-    @commands.check(owner_only)
-    async def test(self, ctx):
-        await self.bot.get_channel(467334911314100234).send("oof")
-
-    @commands.check(owner_only)
-    async def test2(self, ctx):
-        await self.bot.get_channel(1).send("oof")
-
-    @commands.command()
-    @commands.check(owner_only)
-    async def args(self, ctx, *args):
-        await ctx.send(", ".join(args))
-
-    @commands.command()
-    @commands.check(check_fail)
-    async def fail_check(self, ctx):
-        await ctx.send("I don't know how you passed this check, but congrats! :tada:")
-
-    @commands.command()
-    @commands.check(owner_only)
-    async def ratelimits(self, ctx):
-        m = ""
-        for r in self.bot.ratelimits.keys():
-            m += "**{}**: {} ({})\n".format(r, self.bot.ratelimits[r], time.strftime('%m/%d/%Y %H:%M.%S', time.localtime(self.bot.ratelimits[r])))
-        await ctx.send(m)
-
-    @commands.command()
     async def shardinfo(self, ctx):
         try:
-            stuff = "  All : Guilds: {g} Members: {m} Latency: {l}ms\n".format(g=len(self.bot.guilds), m=len(list(self.bot.get_all_members())), l=round(self.bot.latency*1000, 2))
-            servers = {}
-            members = {}
+            servers = {"all": self.bot.guilds}
+            members = {"all": len(list(self.bot.get_all_members()))}
             for guild in self.bot.guilds:
                 shard = str(guild.shard_id)
                 if servers.get(str(shard)) is None:
@@ -129,15 +89,21 @@ class Dev:
                 else:
                     servers[shard].append(guild)
                     members[shard] += len(guild.members)
+            max_shard = max([len(str(x)) for x in range(self.bot.shard_count)])
+            max_guild = max([len(str(len(x))) for x in servers.values()])
+            max_mbr = max([len(str(x)) for x in members.values()])
+            pgr = commands.Paginator(prefix="```prolog")
+            pgr.add_line(f"  All : Guilds: {len(servers['all'])} Members: {members['all']} Latency: {round(self.bot.latency*1000, 2)}ms")
             for s in range(0, self.bot.shard_count):
                 pre = "  "
                 if ctx.guild.shard_id == s:
                     pre = "->"
-                if len(str(s)) == 2:
-                    stuff += "{p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=round(dict(self.bot.latencies)[int(s)] * 1000, 2))
-                else:
-                    stuff += " {p} {s} : Guilds: {g} Members: {m} Latency: {l}ms\n".format(p=pre, s=s, g=len(servers[str(s)]), m=members[str(s)], l=round(dict(self.bot.latencies)[int(s)] * 1000, 2))
-            await ctx.send("```prolog\n{}```".format(stuff))
+                pre = " "*(max_shard-len(str(s))) + pre
+                pre2 = " "*(max_guild-len(str(len(servers[str(s)]))))
+                pre3 = " "*(max_mbr-len(str(members[str(s)])))
+                pgr.add_line(f"{pre} {s} : Guilds: {len(servers[str(s)])}{pre2} Members: {members[str(s)]}{pre3} Latency: {round(dict(self.bot.latencies)[int(s)] * 1000, 2)}ms")
+            p = paginator.DiscordPaginationExtender(pgr.pages)
+            await p.page(ctx)
         except:
             await ctx.send(traceback.format_exc())
 
@@ -155,21 +121,89 @@ class Dev:
             stuff += "{}{}: {} {} --> {}%\n".format(' '*wsp, reg.title().strip('-'), data[reg], ' '*pct_wsp, pct)
         await ctx.send("```prolog\n{}```".format(stuff))
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.check(owner_only)
     async def speedtest(self, ctx):
         m = await ctx.send("Running speedtest... <a:updating:403035325242540032>")
         proc = await asyncio.create_subprocess_shell("speedtest-cli --simple", stdin=None, stderr=PIPE, stdout=PIPE)
         out = (await proc.stdout.read()).decode('utf-8').strip()
-        await m.edit(content="```prolog\n{}```".format(out))
+        await m.edit(content=f"```prolog\n{out}```")
 
-    @commands.command()
+    @commands.command(hidden=True)
     @commands.check(owner_only)
     async def restart(self, ctx):
         await ctx.send("Restarting...")
         sys.exit(0)
         return await ctx.send("apparently the restart command doesn't work")
 
+    @commands.command(hidden=True)
+    @commands.check(owner_only)
+    async def reload_langs(self, ctx):
+        try:
+            lang.reload_langs(self.bot)
+        except:
+            await ctx.send(f"```\n{traceback.format_exc()}\n```")
+        else:
+            await ctx.send(lang._emoji.cmd_success)
+
+    @commands.command(hidden=True)
+    @commands.check(owner_only)
+    async def error(self, ctx):
+        raise RuntimeError()
+
+    async def background_dd_report(self):
+        logging.info('[datadog] waiting for bot to send ON_READY')
+        await self.bot.wait_until_ready()
+        while not self.bot.is_closed():
+            try:
+                await presence.post_stats(self.bot)
+            except Exception as e:
+                logging.error(f"[datadog] Error posting metrics: {type(e).__name__}: {e}")
+            await asyncio.sleep(60)
+
+    async def daily_bot_stats(self):
+        await self.bot.wait_until_ready()
+        last_rep = None
+        while not self.bot.is_closed():
+            t = time.localtime()
+            while not (t.tm_hour == 20 and t.tm_min == 0):
+                await asyncio.sleep(10)
+                t = time.localtime()
+            if last_rep == t.tm_mday:
+                await asyncio.sleep(60)
+                continue
+            last_rep = t.tm_mday
+            e = discord.Embed(color=0x36393f, title="Daily stats report")
+            e.add_field(name="Guilds", value="{:,}".format(len(self.bot.guilds)))
+            e.add_field(name="Members", value="{:,}".format(len(list(self.bot.get_all_members()))))
+            channel = self.bot.get_channel(508265844200046621)
+            await channel.send(embed=e)
+
 
 def setup(bot):
     bot.add_cog(Dev(bot))
+
+    @bot.event
+    async def on_error(event, *args, **kwargs):
+        exc = sys.exc_info()
+        if isinstance(exc[1], ws.ConnectionClosed):
+            pass
+        elif isinstance(exc[1], discord.ConnectionClosed):
+            pass
+        elif isinstance(exc[1], asyncio.CancelledError):
+            pass
+        elif isinstance(exc[1], asyncio.IncompleteReadError):
+            pass
+        elif isinstance(exc[1], aiohttp.client_exceptions.ClientOSError):
+            pass
+        elif isinstance(exc[1], aiohttp.client_exceptions.ServerDisconnectedError):
+            pass
+        elif isinstance(exc[1], aiohttp.client_exceptions.ClientConnectorError):
+            pass
+        elif isinstance(exc[1], aiohttp.client_exceptions.ContentTypeError):
+            pass
+        elif isinstance(exc[1], discord.HTTPException):
+            pass
+        else:
+            return logging.error(f"Error {exc[0].__name__} in {event} event:\n{exc}")
+        logging.warn(f"Ignored {exc[0].__name__} error in {event} event")

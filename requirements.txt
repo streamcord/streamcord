@@ -2,8 +2,11 @@ git+https://github.com/Rapptz/discord.py@rewrite#egg=discord.py[voice]
 asyncio
 aiohttp
 datadog
-sentry_sdk
 python-dateutil
 youtube_dl
 requests
 psutil
+rethinkdb
+jishaku
+python-socketio[asyncio_client]
+colorama
