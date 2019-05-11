@@ -56,11 +56,7 @@ class General(commands.Cog):
             **·** {round(mem.used/1000000)}/{round(mem.total/1000000)}MB RAM used
             """))
             e.add_field(name=msgs['general']['stats_command']['links']['title'], value=msgs['general']['stats_command']['links']['value'], inline=False)
-            e.add_field(name=msgs['general']['stats_command']['developer'], value="Akira#0007", inline=False)
-            try:
-                e.add_field(name=msgs['general']['stats_command']['patrons'], value=", ".join(map(lambda m: str(m), filter(lambda m: 444294762783178752 in map(lambda r: r.id, m.roles) and not 424762262775922692 in map(lambda r: r.id, m.roles), self.bot.get_guild(294215057129340938).members))))
-            except:
-                pass
+            e.add_field(name=msgs['general']['stats_command']['developer'], value="Akira#8185 - [Website](https://akira.arraycord.dev)", inline=False)
             await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=3)

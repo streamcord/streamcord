@@ -59,7 +59,7 @@ class LiveRole(commands.Cog):
                 try:
                     await member.remove_roles(role, reason="Member finished streaming on Twitch")
                     count += 1
-                    self.logger.info(f'Removed live role from {member.id} in {member.guild.id}')
+                    self.logger.debug(f'Removed live role from {member.id} in {member.guild.id}')
                 except discord.Forbidden:
                     pass
                 except:
@@ -71,7 +71,7 @@ class LiveRole(commands.Cog):
                 try:
                     await member.add_roles(role, reason="Member started streaming on Twitch")
                     count += 1
-                    self.logger.info(f'Added live role to {member.id} in {member.guild.id}')
+                    self.logger.debug(f'Added live role to {member.id} in {member.guild.id}')
                 except discord.Forbidden:
                     pass
                 except:
@@ -93,27 +93,27 @@ class LiveRole(commands.Cog):
         lr_info = discord.utils.find(lambda r: r['id'] == str(after.guild.id), self.bot.live_role)
         if lr_info is None: return
         elif not lr_info.get('role'): return
-        self.logger.info(str(lr_info))
+        self.logger.debug(str(lr_info))
         role = discord.Object(id=int(lr_info['role']))
         frole = discord.Object(id=int(lr_info.get('filter', 0)))
         try:
             if (not was_streaming) and is_streaming: # user just went live
                 if frole.id != 0 and discord.utils.get(after.roles, id=frole.id) is None:
-                    self.logger.info(f'Not adding role to {after.id} in {after.guild.id}; they don\'t have the filter role')
+                    self.logger.debug(f'Not adding role to {after.id} in {after.guild.id}; they don\'t have the filter role')
                     return # user doesn't have filter role
                 await after.add_roles(role, reason="Member started streaming on Twitch")
-                self.logger.info(f'Added live role to {after.id} in {after.guild.id}')
+                self.logger.debug(f'Added live role to {after.id} in {after.guild.id}')
             elif was_streaming and (not is_streaming): # user isn't live anymore
                 if discord.utils.get(after.roles, id=role.id) is None:
-                    self.logger.info(f'Not removing role from {after.id} in {after.guild.id}; they don\'t have the live role')
+                    self.logger.debug(f'Not removing role from {after.id} in {after.guild.id}; they don\'t have the live role')
                     return # user doesn't have the live role, so don't bother continuing
                 await after.remove_roles(role, reason="Member finished streaming on Twitch")
-                self.logger.info(f'Removed live role for {after.id} in {after.guild.id}')
+                self.logger.debug(f'Removed live role for {after.id} in {after.guild.id}')
         except discord.Forbidden:
-            self.logger.info(f"Live role forbidden for {after.id} in {after.guild.id}")
+            self.logger.debug(f"Live role forbidden for {after.id} in {after.guild.id}")
         except TypeError as e:
-            self.logger.warn(f"TypeError: {e}")
-        except:
+            self.logger.warn(f"live role TypeError: {e}")
+        except Exception:
             raise
 
     @commands.group(no_pm=True, aliases=['live_check', 'lc', 'lr'])
@@ -474,6 +474,7 @@ class Notifs(commands.Cog):
         e = lang.EmbedBuilder(msgs['notifs']['notif_variables'])
         e.set_footer(icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url, text=str(ctx.author))
         await ctx.send(embed=e)
+
 
 async def poll4(bot):
     logging.info('[notifs] waiting for READY event...')
