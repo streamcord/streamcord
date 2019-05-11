@@ -1,19 +1,24 @@
 from discord.ext import commands
 from utils import settings, lang, paginator, presence
-import discord, asyncio, aiohttp
+import discord
+import asyncio
+import aiohttp
 import time
 import traceback
-import json, io
+import json
+import io
 import textwrap
 from contextlib import redirect_stdout
 from collections import Counter, OrderedDict
 from operator import itemgetter
 from subprocess import PIPE
 import sys
-import datadog, logging
+import datadog
+import logging
 import websockets.exceptions as ws
 import rethinkdb as r
 r = r.RethinkDB()
+
 
 class Dev(commands.Cog):
     def __init__(self, bot):
@@ -33,7 +38,8 @@ class Dev(commands.Cog):
     @commands.check(owner_only)
     @commands.command(name="eval", hidden=True)
     async def _eval(self, ctx, *, body: str):
-        if not ctx.author.id in settings.BotOwners: return
+        if ctx.author.id not in settings.BotOwners:
+            return
         env = {
             'bot': self.bot,
             'ctx': ctx,
@@ -61,13 +67,13 @@ class Dev(commands.Cog):
             with redirect_stdout(stdout):
                 ret = await func()
         except Exception as e:
-            value = stdout.getvalue().replace(settings.Token, "insert token here")
+            value = stdout.getvalue().replace(settings.Token, "[redacted]")
             await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
         else:
-            value = stdout.getvalue().replace(settings.Token, "insert token here")
+            value = stdout.getvalue().replace(settings.Token, "[redacted]")
             try:
                 await ctx.message.add_reaction('✅')
-            except:
+            except Exception:
                 pass
 
             if ret is None:
@@ -77,40 +83,11 @@ class Dev(commands.Cog):
                 await ctx.send(f'```py\n{value}{ret}\n```')
 
     @commands.command()
-    async def shardinfo(self, ctx):
-        try:
-            servers = {"all": self.bot.guilds}
-            members = {"all": len(list(self.bot.get_all_members()))}
-            for guild in self.bot.guilds:
-                shard = str(guild.shard_id)
-                if servers.get(str(shard)) is None:
-                    servers[shard] = [guild]
-                    members[shard] = len(guild.members)
-                else:
-                    servers[shard].append(guild)
-                    members[shard] += len(guild.members)
-            max_shard = max([len(str(x)) for x in range(self.bot.shard_count)])
-            max_guild = max([len(str(len(x))) for x in servers.values()])
-            max_mbr = max([len(str(x)) for x in members.values()])
-            pgr = commands.Paginator(prefix="```prolog")
-            pgr.add_line(f"  All : Guilds: {len(servers['all'])} Members: {members['all']} Latency: {round(self.bot.latency*1000, 2)}ms")
-            for s in range(0, self.bot.shard_count):
-                pre = "  "
-                if ctx.guild.shard_id == s:
-                    pre = "->"
-                pre = " "*(max_shard-len(str(s))) + pre
-                pre2 = " "*(max_guild-len(str(len(servers[str(s)]))))
-                pre3 = " "*(max_mbr-len(str(members[str(s)])))
-                pgr.add_line(f"{pre} {s} : Guilds: {len(servers[str(s)])}{pre2} Members: {members[str(s)]}{pre3} Latency: {round(dict(self.bot.latencies)[int(s)] * 1000, 2)}ms")
-            p = paginator.DiscordPaginationExtender(pgr.pages)
-            await p.page(ctx)
-        except:
-            await ctx.send(traceback.format_exc())
-
-    @commands.command()
     async def guildregions(self, ctx):
         unsorted = Counter(map(lambda g: str(g.region), self.bot.guilds))
-        data = OrderedDict(sorted(unsorted.items(), key=itemgetter(1), reverse=True))
+        data = OrderedDict(
+            sorted(unsorted.items(), key=itemgetter(1), reverse=True)
+        )
         stuff = ""
         max_len = len(max(data.keys(), key=len))
         pct_max_len = len(str(max(data.values())))
@@ -118,14 +95,19 @@ class Dev(commands.Cog):
             wsp = max_len - len(reg)
             pct = round(data[reg] / len(self.bot.guilds) * 100, 1)
             pct_wsp = pct_max_len - len(str(data[reg]))
-            stuff += "{}{}: {} {} --> {}%\n".format(' '*wsp, reg.title().strip('-'), data[reg], ' '*pct_wsp, pct)
+            stuff += f"{' '*wsp}{reg.title().strip('-')}: {data[reg]} {' '*pct_wsp} --> {pct}%\n"
         await ctx.send("```prolog\n{}```".format(stuff))
 
     @commands.command(hidden=True)
     @commands.check(owner_only)
     async def speedtest(self, ctx):
-        m = await ctx.send("Running speedtest... <a:updating:403035325242540032>")
-        proc = await asyncio.create_subprocess_shell("speedtest-cli --simple", stdin=None, stderr=PIPE, stdout=PIPE)
+        m = await ctx.send("Running speedtest...")
+        proc = await asyncio.create_subprocess_shell(
+            "speedtest-cli --simple",
+            stdin=None,
+            stderr=PIPE,
+            stdout=PIPE
+        )
         out = (await proc.stdout.read()).decode('utf-8').strip()
         await m.edit(content=f"```prolog\n{out}```")
 
@@ -141,7 +123,7 @@ class Dev(commands.Cog):
     async def reload_langs(self, ctx):
         try:
             lang.reload_langs(self.bot)
-        except:
+        except Exception:
             await ctx.send(f"```\n{traceback.format_exc()}\n```")
         else:
             await ctx.send(lang._emoji.cmd_success)
@@ -158,7 +140,7 @@ class Dev(commands.Cog):
             try:
                 await presence.post_stats(self.bot)
             except Exception as e:
-                logging.error(f"[datadog] Error posting metrics: {type(e).__name__}: {e}")
+                logging.error(f"Error posting dd: {type(e).__name__}: {e}")
             await asyncio.sleep(60)
 
     async def daily_bot_stats(self):
@@ -174,8 +156,14 @@ class Dev(commands.Cog):
                 continue
             last_rep = t.tm_mday
             e = discord.Embed(color=0x36393f, title="Daily stats report")
-            e.add_field(name="Guilds", value="{:,}".format(len(self.bot.guilds)))
-            e.add_field(name="Members", value="{:,}".format(len(list(self.bot.get_all_members()))))
+            e.add_field(
+                name="Guilds",
+                value="{:,}".format(len(self.bot.guilds))
+            )
+            e.add_field(
+                name="Members",
+                value="{:,}".format(len(self.bot.users))
+            )
             channel = self.bot.get_channel(508265844200046621)
             await channel.send(embed=e)
 

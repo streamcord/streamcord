@@ -43,7 +43,10 @@ class Streamlabs(commands.Cog):
         async def on_disconnect():
             await channel.send('Disconnected from socket.io server')
 
-        await self.sio.connect(f'wss://sockets.streamlabs.com?token={token}', transports=['websocket'])
+        await self.sio.connect(
+            f'wss://sockets.streamlabs.com?token={token}',
+            transports=['websocket']
+        )
 
     async def manage_connections(self):
         await self.websocket_connect(settings.StreamlabsWebsocketKey)
