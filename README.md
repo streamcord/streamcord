@@ -22,6 +22,8 @@ to a server you have the `Manage Server` permission in.
 
 ## Cloning
 
+TwitchBot does not include an Open-Source license. This means that this software is copyrighted and all rights reserved. You can learn more about this here: https://choosealicense.com/no-permission/
+
 We are not offering any support for people who want to clone or redistribute TwitchBot for their own use. You will likely not be able to run your own instance of TwitchBot.
 
 ## Requirements
