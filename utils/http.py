@@ -1,9 +1,11 @@
 from . import settings, functions
 import requests
-import asyncio, aiohttp
+import asyncio
+import aiohttp
 import logging
 import discord
 import time
+import math
 import datadog
 import textwrap
 
@@ -17,17 +19,21 @@ def ObtainAccessToken():
         "client_secret": settings.Twitch.Secret,
         "grant_type": "client_credentials"
     })
-    if r.status_code > 399:
-        print('Error {} while getting access token:\n{}'.format(str(r.json())))
+    try:
+        r.raise_for_status()
+    except Exception:
+        logging.exception("Failed to get Twitch access token!!!")
+        logging.error(r.json())
         return {}
-    logging.info(f'Obtained access token')
+    else:
+        logging.info(f'Obtained access token')
     return r.json()
 
 
 def TwitchAPIRequest(url):
     global token
     if token.get('expires_in', 0) + time.time() <= time.time() + 1:
-         token = ObtainAccessToken()
+        token = ObtainAccessToken()
     headers = {
         "Client-ID": settings.Twitch.ClientID,
         "Authorization": "Bearer " + token.get('access_token'),
@@ -42,36 +48,71 @@ def TwitchAPIRequest(url):
     else:
         logging.debug("GET {0.url} {0.status_code} remaining {1}".format(r, r.headers.get('Ratelimit-Remaining')))
     if not settings.UseBetaBot:
-        datadog.statsd.increment('bot.twapi_calls', tags=["bucket:reg"])
+        datadog.statsd.increment(
+            'bot.twapi_calls',
+            tags=[
+                "bucket:reg",
+                f"status:{r.status_code}"
+            ]
+        )
     return r
 
 
-async def AsyncObtainAccessToken(bot, is_stream=False):
-    params = {
-        "client_id": settings.Twitch.ClientID,
-        "client_secret": settings.Twitch.Secret,
-        "grant_type": "client_credentials"
-    }
-    if is_stream == True:
-        params = {
+def GetTwitchClient(bot, is_stream):
+    cluster = bot.cluster_index
+    if (is_stream is False):
+        return {
+            "client_id": settings.Twitch.ClientID,
+            "client_secret": settings.Twitch.Secret,
+            "grant_type": "client_credentials"
+        }, "bucket:reg"
+    elif cluster <= 3:
+        return {
             "client_id": settings.Twitch.StreamClientID,
             "client_secret": settings.Twitch.StreamSecret,
             "grant_type": "client_credentials"
-        }
+        }, "bucket:stream"
+    elif cluster <= 7:
+        return {
+            "client_id": settings.Twitch.Stream1ClientID,
+            "client_secret": settings.Twitch.Stream1Secret,
+            "grant_type": "client_credentials"
+        }, "bucket:stream_alt"
+    else:
+        return {
+            "client_id": settings.Twitch.Stream2ClientID,
+            "client_secret": settings.Twitch.Stream2Secret,
+            "grant_type": "client_credentials"
+        }, "bucket:stream_alt_2"
+
+
+async def AsyncObtainAccessToken(bot, is_stream=False):
+    params, bucket = GetTwitchClient(bot, is_stream)
     async with bot.aiohttp.post('https://id.twitch.tv/oauth2/token', params=params) as r:
         if r.status > 399:
-            logging.error('Error {} while getting access token:\n{}'.format(r.status, str(await r.json())))
+            logging.fatal('Error {} while getting access token:\n{}'.format(r.status, str(await r.json())))
             return {}
-        logging.info(f'Obtained access token (stream={is_stream})')
-        return await r.json()
+        tkn = await r.json()
+        try:
+            tkn['expires_in'] += time.time()
+        except Exception:
+            logging.exception("Failed to set token expiration time")
+        logging.info(
+            f'Obtained access token (stream:{is_stream}) ({bucket})' +
+            f': {tkn}'
+        )
+        return tkn
 
 
 async def AsyncTwitchAPIRequest(bot, url):
     global token
-    if token.get('expires_in', 0) + time.time() <= time.time() + 1:
-         token = await AsyncObtainAccessToken(bot)
+    if (token.get('expires_in', 0) <= time.time() + 1) or token == {}:
+        token = await AsyncObtainAccessToken(bot)
+
+    params, bucket = GetTwitchClient(bot, False)
+
     headers = {
-        "Client-ID": settings.Twitch.ClientID,
+        "Client-ID": params['client_id'],
         "Authorization": "Bearer " + token.get('access_token'),
         "User-Agent": f"TwitchBot (https://twitchbot.io, v{settings.Version})",
         "Accept": "application/vnd.twitchtv.v5+json"
@@ -82,7 +123,10 @@ async def AsyncTwitchAPIRequest(bot, url):
         else:
             logging.debug("GET {0.url} {0.status} remaining {1}".format(r, r.headers.get('RateLimit-Remaining')))
         if not settings.UseBetaBot:
-            datadog.statsd.increment('bot.twapi_calls', tags=["bucket:reg"])
+            datadog.statsd.increment(
+                'bot.twapi_calls',
+                tags=[bucket, f"status:{r.status}"]
+            )
         if r.status == 429:
             raise TooManyRequestsError
         return r
@@ -90,28 +134,41 @@ async def AsyncTwitchAPIRequest(bot, url):
 
 async def AsyncTwitchAPIStreamRequest(bot, url):
     global stream_token
-    if stream_token.get('expires_in', 0) + time.time() <= time.time() + 1:
+
+    params, bucket = GetTwitchClient(bot, True)
+
+    if stream_token.get('expires_in', 0) <= time.time() + 1 or stream_token == {}:
         stream_token = await AsyncObtainAccessToken(bot, is_stream=True)
+
     headers = {
-        "Client-ID": settings.Twitch.StreamClientID,
+        "Client-ID": params['client_id'],
         "Authorization": "Bearer " + stream_token.get('access_token'),
         "User-Agent": f"TwitchBot (https://twitchbot.io, v{settings.Version})",
         "Accept": "application/vnd.twitchtv.v5+json"
     }
-    async with bot.aiohttp.get("https://api.twitch.tv/helix" + url, headers=headers) as r:
+    async with bot.aiohttp.get(f"https://api.twitch.tv/helix{url}", headers=headers) as r:
         if r.status > 399:
-            logging.warn(f"GET /helix {r.url} {r.status}")
-        if int(r.headers.get('RateLimit-Remaining', 1)) == 0:
-            wait_time = (float(r.headers.get('RateLimit-Reset', time.time())) - time.time()) + 0.5
-            logging.info(f"Ratelimit hit... Waiting {wait_time} second(s) before continuing")
+            logging.warn(f"GET {r.url} {r.status}")
+        if int(r.headers.get('RateLimit-Remaining', 1)) <= 5:
+            bucket_reset = float(r.headers.get('RateLimit-Reset', time.time()))
+            wait_time = math.ceil(bucket_reset - time.time() + 0.5)
+            logging.info(f"Ratelimit hit... Waiting {wait_time} second(s) before continuing\n{r.headers}")
             await asyncio.sleep(wait_time)
         if not settings.UseBetaBot:
-            datadog.statsd.increment('bot.twapi_calls', tags=["bucket:stream"])
+            datadog.statsd.increment(
+                'bot.twapi_calls',
+                tags=[bucket, f"status:{r.status}"]
+            )
         return await r.json()
 
 
 async def SendMetricsWebhook(msg):
-    msg = functions.ReplaceAllInStr(msg, {"@everyone": "@\u200beveryone", "@here": "@\u200bhere"})
+    msg = functions.ReplaceAllInStr(
+        msg, {
+            "@everyone": "@\u200beveryone",
+            "@here": "@\u200bhere"
+        }
+    )
     async with aiohttp.ClientSession() as session:
         webhook = discord.Webhook.from_url(
             settings.WebhookURL,
@@ -120,52 +177,15 @@ async def SendMetricsWebhook(msg):
         await webhook.send(msg)
 
 
-class oAuth:
-    async def NewTwitchOAuthToken(oauthinfo, aio_session, uid, nested=False):
-        async with aio_session as session:
-            params = {
-                "client_id": settings.Twitch.ClientID,
-                "client_secret": settings.Twitch.Secret,
-                "grant_type": "refresh_token",
-                "refresh_token": oauthinfo['refresh_token']
-            }
-            resp = None
-            async with session.post('https://id.twitch.tv/oauth2/token', params=params) as r:
-                if r.status > 299:
-                    if not nested:
-                        await asyncio.sleep(1)
-                        return NewTwitchOAuthToken(oauthinfo, aio_session, nested=True)
-                    else:
-                        raise requests.exceptions.ConnectionError("unable to get access token:\n{}".format(await r.text()))
-                resp = await r.json()
-                params = {
-                    "access_token": resp['access_token'],
-                    "refresh_token": resp['refresh_token']
-                }
-            async with session.post('https://dash.twitchbot.io/api/connections/{}/token'.format(uid), headers={"X-Access-Token": settings.Twitch.ClientID}, params=params):
-                if r.status > 299:
-                    logging.error('failed to update token info to dashboard ({}):\n{}'.format(r.status, await r.text()))
-            return resp
-
-    async def TwitchAPIOAuthRequest(url, oauthinfo, uid, nested=False):
-        async with aiohttp.ClientSession() as session:
-            headers = {
-                "Client-ID": settings.Twitch.ClientID,
-                "Authorization": "OAuth " + oauthinfo['access_token']
-            }
-            async with session.get(url, headers=headers) as r:
-                if r.status in [401, 403]:
-                    if not nested:
-                        code = await NewTwitchOAuthToken(oauthinfo, session, uid)
-                        return TwitchAPIOAuthRequest(url, code, uid, nested=True)
-                    else:
-                        raise requests.exceptions.ConnectionError("failed to get url {} ({}):\n{}".format(r.url, r.status, await r.text()))
-                elif r.status > 499:
-                    if not nested:
-                        return TwitchAPIOAuthRequest(url, oauthinfo, uid, nested=True)
-                    else:
-                        raise requests.exceptions.ConnectionError("failed to get url {} ({}):\n{}".format(r.url, r.status, await r.text()))
-                return r
+async def bot_api_req(url, use_dash=False):
+    async with aiohttp.ClientSession() as session:
+        base_url = "dash.twitchbot.io/api" if use_dash else "api.twitchbot.io"
+        url = "https://" + base_url + url
+        async with session.get(
+            url, headers={"X-Auth-Key": settings.DashboardKey}
+        ) as resp:
+            json = (await resp.json())
+            return json, resp.status
 
 
 class Games:

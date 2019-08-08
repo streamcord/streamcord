@@ -119,3 +119,53 @@ def setup(bot):
                 return
             # if the user made it through all this then they're a subscriber
             #resp = await r.json()
+
+
+# http oauth stuff
+
+class oAuth:
+    async def NewTwitchOAuthToken(oauthinfo, aio_session, uid, nested=False):
+        async with aio_session as session:
+            params = {
+                "client_id": settings.Twitch.ClientID,
+                "client_secret": settings.Twitch.Secret,
+                "grant_type": "refresh_token",
+                "refresh_token": oauthinfo['refresh_token']
+            }
+            resp = None
+            async with session.post('https://id.twitch.tv/oauth2/token', params=params) as r:
+                if r.status > 299:
+                    if not nested:
+                        await asyncio.sleep(1)
+                        return NewTwitchOAuthToken(oauthinfo, aio_session, nested=True)
+                    else:
+                        raise requests.exceptions.ConnectionError("unable to get access token:\n{}".format(await r.text()))
+                resp = await r.json()
+                params = {
+                    "access_token": resp['access_token'],
+                    "refresh_token": resp['refresh_token']
+                }
+            async with session.post('https://dash.twitchbot.io/api/connections/{}/token'.format(uid), headers={"X-Access-Token": settings.Twitch.ClientID}, params=params):
+                if r.status > 299:
+                    logging.error('failed to update token info to dashboard ({}):\n{}'.format(r.status, await r.text()))
+            return resp
+
+    async def TwitchAPIOAuthRequest(url, oauthinfo, uid, nested=False):
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                "Client-ID": settings.Twitch.ClientID,
+                "Authorization": "OAuth " + oauthinfo['access_token']
+            }
+            async with session.get(url, headers=headers) as r:
+                if r.status in [401, 403]:
+                    if not nested:
+                        code = await NewTwitchOAuthToken(oauthinfo, session, uid)
+                        return TwitchAPIOAuthRequest(url, code, uid, nested=True)
+                    else:
+                        raise requests.exceptions.ConnectionError("failed to get url {} ({}):\n{}".format(r.url, r.status, await r.text()))
+                elif r.status > 499:
+                    if not nested:
+                        return TwitchAPIOAuthRequest(url, oauthinfo, uid, nested=True)
+                    else:
+                        raise requests.exceptions.ConnectionError("failed to get url {} ({}):\n{}".format(r.url, r.status, await r.text()))
+                return r

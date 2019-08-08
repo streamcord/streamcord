@@ -1,4 +1,7 @@
 __pycache__/
 *.pyc
-*.json
+*json
 PUBLIC_VERSION_DO_NOT_EDIT
+i18n/
+legacy/
+launch*.py

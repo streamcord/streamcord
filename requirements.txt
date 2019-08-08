@@ -9,4 +9,3 @@ psutil
 rethinkdb
 jishaku
 python-socketio[asyncio_client]
-colorama

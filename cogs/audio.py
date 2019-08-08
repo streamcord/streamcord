@@ -1,204 +1,128 @@
-from discord.ext import commands
 import discord
-import asyncio
-import youtube_dl
-import logging
-import traceback
-import requests
+import wavelink
+import aiohttp
+
+from discord.ext import commands
 from utils import settings, lang, http
-import datadog
-import secrets
-
-ytdl_format_options = {
-    'format': 'bestaudio/best',
-    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
-    'restrictfilenames': False,
-    'noplaylist': True,
-    'nocheckcertificate': True,
-    'ignoreerrors': False,
-    'logtostderr': True,
-    'quiet': False,
-    'no_warnings': False,
-    'default_search': 'auto',
-    'source_address': '0.0.0.0'  # bind to ipv4 since ipv6 can cause issues
-}
-
-ffmpeg_options = {
-    'before_options': '-nostdin',
-    'options': '-vn'
-}
-
-ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
-
-
-class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=1):
-        super().__init__(source, volume)
-
-        self.data = data
-
-        self.title = data.get('title')
-        self.url = data.get('url')
-
-    @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
-        loop = loop or asyncio.get_event_loop()
-        data = await loop.run_in_executor(
-            None,
-            lambda: ytdl.extract_info(url, download=not stream)
-        )
-
-        if 'entries' in data:
-            # take first item from a playlist
-            data = data['entries'][0]
-
-        filename = data['url'] if stream else ytdl.prepare_filename(data)
-        return cls(
-            discord.FFmpegPCMAudio(filename, **ffmpeg_options),
-            data=data
-        )
+from urllib.parse import urlparse
+from secrets import token_hex
 
 
 class Audio(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(pass_context=True, no_pm=True)
-    async def listen(self, ctx, *, url: str):
-        """Listen to the specified Twitch user in the current voice channel."""
-        msgs = await lang.get_lang(ctx)
-        url = "https://www.twitch.tv/" + url.split('/')[-1]
-        if (not hasattr(ctx.author, "voice")) or ctx.author.voice is None:
-            return await ctx.send(msgs['audio']['author_not_in_voice_channel'])
-        voice_channel = ctx.author.voice.channel
-        prem_check = requests.get(
-            f"https://api.twitchbot.io/premium/{ctx.author.id}",
-            headers={
-                "X-Auth-Key": settings.DashboardKey
-            }
+        if not hasattr(bot, 'wavelink'):
+            self.bot.wavelink = wavelink.Client(self.bot)
+
+        self.bot.loop.create_task(self.start_nodes())
+        self.voice_states = {}
+
+    async def start_nodes(self):
+        await self.bot.wait_until_ready()
+
+        await self.bot.wavelink.initiate_node(
+            host='192.168.86.42',
+            port=2333,
+            rest_uri='http://192.168.86.42:2333/',
+            password=settings.LavalinkPassword,
+            identifier=f'cluster-{self.bot.cluster_index}-{token_hex(5)}',
+            region='us_central'
         )
-        if prem_check.json().get('premium') is not True \
-                or prem_check.status_code != 200:
-            r = requests.get(
-                f"https://dash.twitchbot.io/api/users/{ctx.author.id}/votes",
-                headers={
-                    "X-Auth-Key": settings.DashboardKey
-                }
-            )
-            if r.status_code != 200 or r.json()['active'] is False:
-                # Fallback in case the dashboard failed
-                r = http.BotLists.DBLRequest(
-                    f"/bots/375805687529209857/check?userId={ctx.author.id}"
+
+    @commands.command(no_pm=True, aliases=["join"])
+    async def _connect(self, ctx, *, channel: discord.VoiceChannel = None):
+        msgs = await lang.get_lang(ctx)
+
+        if not channel:
+            try:
+                channel = ctx.author.voice.channel
+            except AttributeError:
+                return await ctx.send(
+                    msgs['audio']['author_not_in_voice_channel']
                 )
-                if r.status_code == 200 and not r.json()['voted'] == 1:
+
+        player = self.bot.wavelink.get_player(ctx.guild.id)
+        await player.connect(channel.id)
+
+    @commands.command(no_pm=True, aliases=["listen"])
+    async def play(self, ctx, *, query):
+        msgs = await lang.get_lang(ctx)
+
+        is_prem, status = await http.bot_api_req(f'/premium/{ctx.author.id}')
+        if is_prem.get('premium') is False or status != 200:
+            # check if the user has voted w/in the last 12 hours
+            vote, status = await http.bot_api_req(
+                f'/users/{ctx.author.id}/votes', use_dash=True
+            )
+            if vote.get('active') is False or status != 200:
+                # fallback in case the dashboard failed
+                r = http.BotLists.DBLRequest(
+                    f'/bots/375805687529209857/check?userId={ctx.author.id}'
+                )
+                if r.status_code == 200 and r.json().get('voted') != 1:
+                    # user is not premium and has not upvoted
                     return await ctx.send(
                         embed=lang.EmbedBuilder(
                             msgs['audio']['need_upvote_to_continue']
                         )
                     )
-        m = await ctx.send(msgs['audio']['please_wait'])
-        try:
-            try:
-                channel = await voice_channel.connect()
-            except discord.ClientException:
-                session = ctx.message.guild.voice_client
-                await session.disconnect()
-                await asyncio.sleep(2)
-                channel = await voice_channel.connect()
-        except Exception as ex:
-            return await ctx.send(f"A {type(ex).__name__} occurred: {ex}")
-        try:
-            uname = url.split("twitch.tv/")[1]
-            r = http.TwitchAPIRequest(
-                f"https://api.twitch.tv/helix/streams?user_login={uname}"
-            )
-            if len(r.json()["data"]) < 1:
-                return await m.edit(
-                    content=msgs['audio']['user_does_not_exist_or_not_streaming']
-                )
-            r = r.json()["data"][0]
-            r2 = http.TwitchAPIRequest(
-                f"https://api.twitch.tv/helix/users?login={uname}"
-            )
-            if len(r2.json()["data"]) < 1:
-                return await m.edit(
-                    content=msgs['audio']['user_does_not_exist_or_not_streaming']
-                )
-            r2 = r2.json()["data"][0]
-            e = discord.Embed(
-                color=0x6441A4,
-                title=msgs['audio']['now_playing']['title'].format(
-                    channel=voice_channel.name
-                ),
-                description=msgs['audio']['now_playing']['description'].format(
-                    title=r['title'],
-                    viewer_count=r['viewer_count']
-                )
-            )
-            e.set_author(
-                name=r2['display_name'],
-                url=url,
-                icon_url=r2['profile_image_url']
-            )
-            fmt_thumb = r['thumbnail_url'].format(width=1920, height=1080)
-            e.set_image(
-                url=fmt_thumb + f"?{secrets.token_urlsafe(5)}"
-            )
-            avatar_url = ctx.author.avatar_url or ctx.author.default_avatar_url
-            e.set_footer(
-                icon_url=avatar_url,
-                text=f"{ctx.author} - {msgs['audio']['now_playing']['footer']}"
-            )
-            player = await YTDLSource.from_url(
-                url,
-                loop=self.bot.loop,
-                stream=True
-            )
-            channel.play(
-                player,
-                after=lambda e:
-                    logging.error("{}: {}".format(type(e).__name__, e))
-                    if e else None
-            )
-            self.bot.active_vc[ctx.message.guild.id] = e
-            await m.edit(content=None, embed=e)
-        except youtube_dl.DownloadError:
-            await ctx.send(
+
+        url = urlparse(query)
+        query = "https://twitch.tv/" + url.path.strip("/")
+        print(query)
+        tracks = await self.bot.wavelink.get_tracks(query)
+        if not tracks:
+            return await ctx.send(
                 msgs['audio']['user_does_not_exist_or_not_streaming']
             )
-        except TimeoutError:
-            await ctx.send(msgs['audio']['connection_timeout'])
-        except discord.ClientException as ex:
-            await ctx.send(f"{type(ex).__name__}: {ex}")
-        except Exception:
-            raise
 
-    @commands.command(aliases=["stop"], no_pm=True)
+        player = self.bot.wavelink.get_player(ctx.guild.id)
+        if not player.is_connected:
+            await ctx.invoke(self._connect)
+
+        await player.set_volume(100)
+        await player.play(tracks[0])
+        self.voice_states[ctx.guild.id] = tracks[0]
+        await ctx.invoke(self.nowplaying)
+
+    @commands.command(no_pm=True, aliases=["stop", "disconnect", "dc"])
     async def leave(self, ctx):
         msgs = await lang.get_lang(ctx)
-        session = ctx.message.guild.voice_client
-        if session is None:
-            await ctx.send(msgs['audio']['not_streaming'])
-            return
-        else:
-            await session.disconnect()
-            try:
-                del self.bot.active_vc[ctx.message.guild.id]
-            except Exception:
-                pass
-            await ctx.send(msgs['audio']['disconnected'])
 
-    @commands.command(pass_context=True, aliases=['playing', 'nowplaying'])
-    async def np(self, ctx):
+        player = self.bot.wavelink.get_player(ctx.guild.id)
+        await player.disconnect()
+        self.voice_states.pop(ctx.guild.id, None)
+        try:
+            await ctx.message.guild.voice_client.disconnect()
+        except AttributeError:
+            pass
+        await ctx.send(msgs['audio']['disconnected'])
+
+    @commands.command(no_pm=True, aliases=["np", "playing"])
+    async def nowplaying(self, ctx):
         msgs = await lang.get_lang(ctx)
-        player_embed = self.bot.active_vc.get(ctx.message.guild.id)
-        if player_embed is None:
-            await ctx.send(msgs['audio']['not_streaming'])
-        else:
-            player_embed.title = msgs['audio']['now_playing']['title'].format(
-                channel=ctx.author.voice.channel.name
-            )
-            await ctx.send(embed=player_embed)
+
+        player = self.bot.wavelink.get_player(ctx.guild.id)
+        if not player.is_connected:
+            return await ctx.send(msgs['audio']['not_streaming'])
+
+        voice_state = self.voice_states.get(ctx.guild.id)
+        if voice_state is None:
+            return await ctx.send(msgs['audio']['not_streaming'])
+
+        e = discord.Embed(
+            color=0x6441A4,
+            title=msgs['audio']['now_playing']['title']
+            .format(channel=ctx.author.voice.channel),
+            description=f"{voice_state.title}\n{voice_state.uri}"
+        )
+        e.set_footer(
+            icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url,
+            text=f"{ctx.author} - {msgs['audio']['now_playing']['footer']}"
+        )
+
+        await ctx.send(embed=e)
 
 
 def setup(bot):

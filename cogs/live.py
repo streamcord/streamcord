@@ -1,22 +1,31 @@
 import discord
-import traceback, logging
+import traceback
+import logging
 from discord.ext import commands
 from collections import Counter
 from utils import settings, lang, http, functions, paginator
 from copy import copy
-import json, re
-import os, os.path
-import aiohttp, asyncio
-import logging, traceback
-import typing, textwrap
+import json
+import re
+import os
+import os.path
+import aiohttp
+import asyncio
+import logging
+import traceback
+import typing
+import textwrap
 import datadog
 import secrets
-import time, dateutil.parser, datetime
+import time
+import dateutil.parser
+import datetime
 import requests
 import rethinkdb as r
 r = r.RethinkDB()
 
 log = logging.getLogger("bot.live")
+
 
 class LiveRole(commands.Cog):
     def __init__(self, bot):
@@ -26,7 +35,10 @@ class LiveRole(commands.Cog):
         bot.loop.create_task(self.check_roles())
 
     def __cache_pull__(self):
-        self.bot.live_role = list(r.table('live_role').run(self.bot.rethink, durability="soft"))
+        self.bot.live_role = list(
+            r.table('live_role')
+                .run(self.bot.rethink, durability="soft")
+            )
 
     async def update_cache(self):
         __nonce__ = secrets.token_urlsafe(5)
@@ -42,163 +54,320 @@ class LiveRole(commands.Cog):
     async def check_roles(self):
         await self.bot.wait_until_ready()
         if not hasattr(self.bot, 'live_role'):
-            self.logger.info('Live role status not pulled from database; forcing pull')
             self.__cache_pull__()
         guild_ids = map(lambda g: str(g.id), self.bot.guilds)
-        live_role = filter(lambda g: (g['id'] in guild_ids) and (g.get('role') is not None), self.bot.live_role)
-        self.logger.info(f"Updating live role status of {len(list(live_role))} guilds")
+        live_role = list(filter(
+            lambda g:
+                g['id'] in guild_ids
+                and g.get('role') is not None,
+            self.bot.live_role
+        ))
+        self.logger.info(f"Updating live role for {len(live_role)} guilds")
         count = 0
         for guild in live_role:
-            ctx = self.bot.get_guild(int(guild['id']))
-            role = ctx.get_role(int(guilds['role']))
-            frole = ctx.get_role(int(guilds.get('filter', 0)))
+            ctx = self.bot.get_guild(int(guild['id'] or 0))
+            role = ctx.get_role(int(guild['role'] or 0))
             if ctx is None or role is None:
-                continue # either the guild or live role doesn't exist
-            to_remove = filter(lambda m: (role.id in map(lambda r: r.id, m.roles)) and (not isinstance(m.activity, discord.Streaming)), ctx.members)
+                # either the guild or live role doesn't exist
+                r.table('live_role')\
+                    .get(guild['id'])\
+                    .delete()\
+                    .run(self.bot.rethink, durability="soft", noreply=True)
+                continue
+            frole = ctx.get_role(int(guilds.get('filter', 0)))
+            to_remove = filter(
+                lambda m:
+                    (role.id in map(lambda r: r.id, m.roles))
+                    and (not isinstance(m.activity, discord.Streaming))
+                    and (not m.bot),
+                ctx.members
+            )
             for member in to_remove:
                 try:
-                    await member.remove_roles(role, reason="Member finished streaming on Twitch")
+                    await member.remove_roles(
+                        role,
+                        reason="Member finished streaming on Twitch"
+                    )
                     count += 1
-                    self.logger.debug(f'Removed live role from {member.id} in {member.guild.id}')
+                    self.logger.debug(
+                        f'-: {member.id} in {member.guild.id}')
                 except discord.Forbidden:
                     pass
-                except:
-                    self.logger.error(f"Failed to remove live role:\n{traceback.format_exc()}")
-            to_add = filter(lambda m: (role.id not in map(lambda r: r.id, m.roles)) and isinstance(m.activity, discord.Streaming), ctx.members)
+                except Exception:
+                    self.logger.exception("Failed to remove live role")
+            to_add = filter(
+                lambda m:
+                    (role.id not in map(lambda r: r.id, m.roles))
+                    and isinstance(m.activity, discord.Streaming),
+                ctx.members
+            )
             if frole is not None:
-                to_add = filter(lambda m: frole.id in map(lambda r: r.id, m.roles), to_add)
+                to_add = filter(
+                    lambda m:
+                        frole.id in map(lambda r: r.id, m.roles)
+                        and not m.bot,
+                    to_add
+                )
             for member in to_add:
                 try:
-                    await member.add_roles(role, reason="Member started streaming on Twitch")
+                    await member.add_roles(
+                        role,
+                        reason="Member started streaming on Twitch"
+                    )
                     count += 1
-                    self.logger.debug(f'Added live role to {member.id} in {member.guild.id}')
+                    self.logger.debug(f'+: {member.id} in {member.guild.id}')
                 except discord.Forbidden:
                     pass
-                except:
-                    self.logger.error(f"Failed to add live role:\n{traceback.format_exc()}")
+                except Exception:
+                    self.logger.exception("Failed to add live role")
         self.logger.info(f"Updated the live role status of {count} members")
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
-        if before.guild is None or before.bot:
-            return
-        elif not hasattr(self.bot, 'live_role'):
-            self.logger.info('Live role status not pulled from database; forcing pull')
-            self.__cache_pull__()
-        was_streaming = isinstance(before.activity, discord.Streaming)
-        is_streaming = isinstance(after.activity, discord.Streaming)
-        self.logger.debug(f"member update {after.guild.id} {after.id}: {was_streaming} -> {is_streaming}")
-        if was_streaming == is_streaming: return
-        await self.bot.wait_until_ready()
-        lr_info = discord.utils.find(lambda r: r['id'] == str(after.guild.id), self.bot.live_role)
-        if lr_info is None: return
-        elif not lr_info.get('role'): return
-        self.logger.debug(str(lr_info))
-        role = discord.Object(id=int(lr_info['role']))
-        frole = discord.Object(id=int(lr_info.get('filter', 0)))
         try:
-            if (not was_streaming) and is_streaming: # user just went live
-                if frole.id != 0 and discord.utils.get(after.roles, id=frole.id) is None:
-                    self.logger.debug(f'Not adding role to {after.id} in {after.guild.id}; they don\'t have the filter role')
-                    return # user doesn't have filter role
-                await after.add_roles(role, reason="Member started streaming on Twitch")
-                self.logger.debug(f'Added live role to {after.id} in {after.guild.id}')
-            elif was_streaming and (not is_streaming): # user isn't live anymore
+            if before.guild is None or before.bot:
+                return
+            elif not hasattr(self.bot, 'live_role'):
+                self.__cache_pull__()
+            was_streaming = isinstance(before.activity, discord.Streaming)
+            is_streaming = isinstance(after.activity, discord.Streaming)
+            if was_streaming == is_streaming:
+                return
+            await self.bot.wait_until_ready()
+            lr_info = discord.utils.find(
+                lambda r: r['id'] == str(after.guild.id),
+                self.bot.live_role
+            )
+            if lr_info is None:
+                return
+            elif not lr_info.get('role'):
+                return
+            self.logger.info(
+                f"{after.guild.id} in {after.id}: " +
+                f"{was_streaming} -> {is_streaming}"
+            )
+            try:
+                role = discord.Object(id=int(lr_info['role']))
+                frole = discord.Object(id=int(lr_info.get('filter') or 0))
+                if role.id == frole.id:
+                    # in case the live and filter roles are the same, we'll
+                    # just ignore the filter role
+                    frole = discord.Object(id=0)
+            except TypeError:
+                # role or filter is set to None
+                self.logger.exception("it's that one thing")
+                return
+            if (not was_streaming) and is_streaming:
+                # member just went live
+                user_filter_role = discord.utils.get(after.roles, id=frole.id)
+                if frole.id != 0 and user_filter_role is None:
+                    return self.logger.debug(''.join([
+                        f"Skipping role for {after.id} in {after.guild.id}; ",
+                        "member does not have the filter role"
+                    ]))
+                await after.add_roles(
+                    role,
+                    reason="Member started streaming on Twitch"
+                )
+                self.logger.debug(
+                    f'Added live role to {after.id} in {after.guild.id}'
+                )
+                if lr_info.get('notifications') is True:
+                    channel = after.guild.get_channel(int(
+                        lr_info.get('notif_channel', 0)
+                    ))
+                    if channel is None:
+                        return
+
+                    fmt_vars = {
+                        "{user.name}": after.name,
+                        "{user.twitch_name}": after.activity.twitch_name,
+                        "{user.twitch_url}": after.activity.url
+                    }
+                    msg = functions.ReplaceAllInStr(
+                        lr_info["notif_message"], fmt_vars
+                    )
+
+                    return await channel.send(msg)
+            elif was_streaming and (not is_streaming):
+                # member is no longer streaming
                 if discord.utils.get(after.roles, id=role.id) is None:
-                    self.logger.debug(f'Not removing role from {after.id} in {after.guild.id}; they don\'t have the live role')
-                    return # user doesn't have the live role, so don't bother continuing
-                await after.remove_roles(role, reason="Member finished streaming on Twitch")
-                self.logger.debug(f'Removed live role for {after.id} in {after.guild.id}')
+                    return self.logger.debug(''.join([
+                        "Skipping role removal for ",
+                        f"{after.id} in {after.guild.id}; ",
+                        "member did not have the live role"
+                    ]))
+                    return
+                await after.remove_roles(
+                    role,
+                    reason="Member finished streaming on Twitch"
+                )
+                self.logger.debug(
+                    f'Removed live role for {after.id} in {after.guild.id}'
+                )
         except discord.Forbidden:
-            self.logger.debug(f"Live role forbidden for {after.id} in {after.guild.id}")
+            self.logger.debug(
+                f"Live role forbidden for {after.id} in {after.guild.id}"
+            )
+        except discord.NotFound:
+            # role doesn't exist
+            return
         except TypeError as e:
-            self.logger.warn(f"live role TypeError: {e}")
+            self.logger.exception("live role TypeError:")
         except Exception:
-            raise
+            self.logger.exception("Failed to update live role")
 
     @commands.group(no_pm=True, aliases=['live_check', 'lc', 'lr'])
     async def live_role(self, ctx):
         if ctx.invoked_subcommand is None:
             msgs = await lang.get_lang(ctx)
-            await ctx.send(embed=lang.EmbedBuilder(msgs['live_role']['command_usage']))
+            await ctx.send(
+                embed=lang.EmbedBuilder(msgs['live_role']['command_usage'])
+            )
 
     @live_role.command()
     async def set(self, ctx, *, role: typing.Union[discord.Role, str] = None):
         msgs = await lang.get_lang(ctx)
         if not ctx.author.permissions_in(ctx.channel).manage_guild:
-            return await ctx.send(msgs['permissions']['user_need_perm'].format(permission="Manage Server"))
+            return await ctx.send(
+                msgs['permissions']['user_need_perm']
+                .format(permission="Manage Server")
+            )
         elif not ctx.guild.me.permissions_in(ctx.channel).manage_roles:
-            return await ctx.send(msgs['permissions']['bot_need_perm'].format(permission="Manage Roles"))
+            return await ctx.send(
+                msgs['permissions']['bot_need_perm']
+                .format(permission="Manage Roles")
+            )
         if role is None:
             return await ctx.send(msgs['live_role']['no_role_mentioned'])
         if type(role) == str:
-            role = discord.utils.find(lambda m: role.lower() in m.name.lower(), ctx.guild.roles)
+            role = discord.utils.find(
+                lambda m: role.lower() in m.name.lower(),
+                ctx.guild.roles
+            )
             if role is None:
                 return await ctx.send(msgs['live_role']['role_not_found'])
-        r.table('live_role').insert({"id": str(ctx.guild.id), "role": str(role.id)}, conflict="update").run(self.bot.rethink, durability="soft", noreply=True)
+        r.table('live_role')\
+            .insert({
+                "id": str(ctx.guild.id),
+                "role": str(role.id),
+                "notifications": False
+            },
+            conflict="update")\
+            .run(self.bot.rethink, durability="soft", noreply=True)
         await ctx.send(msgs['live_role']['add_success'].format(role=role.name))
-        cursor = r.table('live_role').get(str(ctx.guild.id)).run(self.bot.rethink, durability="soft")
+        cursor = r.table('live_role')\
+            .get(str(ctx.guild.id))\
+            .run(self.bot.rethink)
         if cursor is None:
-            return # db hasn't updated yet
+            # database hasn't updated yet
+            return
         g = ctx.guild
         try:
-            filt = cursor.get('filter')
             lc = int(cursor['role'])
             role = discord.utils.find(lambda r: r.id == int(lc), g.roles)
-            for m in filter(lambda m: isinstance(m.activity, discord.Streaming), g.members):
+            streamers = filter(
+                lambda m:
+                    isinstance(m.activity, discord.Streaming)
+                    and not m.bot,
+                g.members
+            )
+            for m in streamers:
                 if not m.bot:
-                    if filt is not None:
-                        frole = discord.utils.get(g.roles, id=int(filt))
-                        if not frole.id in map(lambda r: r.id, m.roles):
+                    if 'filter' in cursor.keys():
+                        frole = discord.utils.get(
+                            g.roles, id=int(cursor['filter'])
+                        )
+                        if frole.id not in map(lambda r: r.id, m.roles):
                             continue
-                    log.info("Adding streamer role to {before.id} in {before.guild.id}".format(before=m))
-                    await m.add_roles(role, reason="User went live on Twitch")
+                    log.info(f"Adding streamer role to {m.id} in {m.guild.id}")
+                    await m.add_roles(
+                        role,
+                        reason="User went live on Twitch"
+                    )
         except discord.Forbidden as e:
             await ctx.send(msgs['live_role']['missing_perms_ext'])
+        except Exception:
+            logging.exception('w')
+            raise
 
     @live_role.command(name="filter", no_pm=True)
     async def _filter(self, ctx, *, role: typing.Union[discord.Role, str] = None):
         """Restricts Live Role to users with a specific role"""
         msgs = await lang.get_lang(ctx)
         if not ctx.author.permissions_in(ctx.channel).manage_guild:
-            return await ctx.send(msgs['permissions']['user_need_perm'].format(permission="Manage Server"))
+            return await ctx.send(
+                msgs['permissions']['user_need_perm']
+                .format(permission="Manage Server")
+            )
         elif not ctx.guild.me.permissions_in(ctx.channel).manage_roles:
-            return await ctx.send(msgs['permissions']['bot_need_perm'].format(permission="Manage Roles"))
+            return await ctx.send(
+                msgs['permissions']['bot_need_perm']
+                .format(permission="Manage Roles")
+            )
         if role is None:
             return await ctx.send(msgs['live_role']['no_role_mentioned'])
         if type(role) == str:
-            role = discord.utils.find(lambda m: role.lower() in m.name.lower(), ctx.guild.roles)
+            role = discord.utils.find(
+                lambda m: role.lower() in m.name.lower(),
+                ctx.guild.roles
+            )
             if role is None:
                 return await ctx.send(msgs['live_role']['role_not_found'])
-        cursor = r.table('live_role').get(str(ctx.guild.id)).run(self.bot.rethink, durability="soft")
-        if cursor is None:
+        cursor = r.table('live_role')\
+            .get(str(ctx.guild.id))\
+            .run(self.bot.rethink)
+        cursor = dict(cursor or {})
+        if cursor == {}:
             return await ctx.send(msgs['live_role']['not_set_up'])
-        r.table('live_role').insert({"id": str(ctx.guild.id), "filter": str(role.id)}, conflict="update").run(self.bot.rethink, durability="soft", noreply=True)
+        if cursor.get('role') == str(role.id):
+            return await ctx.send(
+                "Filter role and live role can't be the same. " +
+                "Choose a different role."
+            )
+        r.table('live_role')\
+            .insert({
+                "id": str(ctx.guild.id),
+                "filter": str(role.id)
+            },
+            conflict="update")\
+            .run(self.bot.rethink, durability="soft", noreply=True)
         await ctx.send(msgs['live_role']['filter_success'])
         g = ctx.guild
-        filt = role.id
         lc = int(cursor['role'])
-        role = discord.utils.find(lambda r: str(r.id) == str(lc), g.roles)
-        for m in filter(lambda m: role.id in map(lambda r: r.id, m.roles), g.members):
-            if filt is not None:
-                frole = discord.utils.get(g.roles, id=int(filt))
-                if not frole.id in map(lambda r: r.id, m.roles):
-                    log.info("Removing streamer role from {before.id} in {before.guild.id}".format(before=m))
-                    await m.remove_roles(role, reason="User does not have filter role for Live Role")
+        live_role = discord.utils.find(
+            lambda r: str(r.id) == str(lc),
+            g.roles
+        )
+        filtered_members = filter(
+            lambda m: role.id in map(lambda r: r.id, m.roles),
+            g.members
+        )
+        for m in filtered_members:
+            if role.id is not None:
+                if role.id not in map(lambda r: r.id, m.roles):
+                    log.info(f"-: {m.id} in {m.guild.id}")
+                    await m.remove_roles(
+                        live_role,
+                        reason="User does not have filter role for Live Role"
+                    )
 
     @live_role.command(aliases=['del', 'remove'])
     async def delete(self, ctx):
         msgs = await lang.get_lang(ctx)
         if not ctx.author.permissions_in(ctx.channel).manage_guild:
-            return await ctx.send(msgs['permissions']['user_need_perm'].format(permission="Manage Server"))
+            return await ctx.send(
+                msgs['permissions']['user_need_perm']
+                .format(permission="Manage Server")
+            )
         try:
-            cursor = r.table('live_role').get(str(ctx.guild.id))
-            if cursor.run(self.bot.rethink, durability="soft") is None:
-                return await ctx.send(msgs['live_role']['not_set_up'])
-            cursor.delete().run(self.bot.rethink, durability="soft", noreply=True)
+            r.table('live_role')\
+                .get(str(ctx.guild.id))\
+                .delete()\
+                .run(self.bot.rethink, durability="soft", noreply=True)
         except KeyError as e:
             return await ctx.send(msgs['live_role']['not_set_up'])
-        except:
+        except Exception:
             raise
         else:
             return await ctx.send(msgs['live_role']['del_success'])
@@ -206,31 +375,47 @@ class LiveRole(commands.Cog):
     @live_role.command(aliases=['list'])
     async def view(self, ctx):
         msgs = await lang.get_lang(ctx)
-        cursor = r.table('live_role').get(str(ctx.guild.id)).run(self.bot.rethink, durability="soft")
+        cursor = r.table('live_role')\
+            .get(str(ctx.guild.id))\
+            .run(self.bot.rethink)
         if cursor is None:
             return await ctx.send(msgs['live_role']['not_set_up'])
-        role = discord.utils.find(lambda n: n.id == int(cursor['role']), ctx.guild.roles)
-        await ctx.send(msgs['live_role']['view_response'].format(role=role.name))
+        role = discord.utils.find(
+            lambda n: n.id == int(cursor['role']),
+            ctx.guild.roles
+        )
+        await ctx.send(
+            msgs['live_role']['view_response'].format(role=role.name)
+        )
 
     @live_role.command()
     async def check(self, ctx):
         try:
             msgs = await lang.get_lang(ctx)
-            cursor = r.table('live_role').get(str(ctx.guild.id)).run(self.bot.rethink, durability="soft")
+            cursor = r.table('live_role')\
+                .get(str(ctx.guild.id))\
+                .run(self.bot.rethink)
             if cursor is None:
                 return await ctx.send(msgs['live_role']['not_set_up'])
             try:
                 role = ctx.guild.get_role(int(cursor['role']))
                 if cursor.get('filter') is not None:
-                    cursor['filter'] = ctx.guild.get_role(int(cursor['filter']))
+                    cursor['filter'] = ctx.guild.get_role(
+                        int(cursor['filter'])
+                    )
             except TypeError:
                 return await ctx.send(msgs['live_role']['not_set_up'])
             e = discord.Embed(color=0x6441A4, title="Live Role Check")
-            live_members = len(list(filter(lambda m: isinstance(m.activity, discord.Streaming) and not m.bot, ctx.guild.members)))
-            members_with_lr = len(list(filter(lambda m: role in m.roles, ctx.guild.members)))
-            status = "<:tickYes:342738345673228290>"
-            if live_members != members_with_lr:
-                status = "<:tickNo:342738745092734976>"
+            live_members = len(list(filter(
+                lambda m:
+                    isinstance(m.activity, discord.Streaming)
+                    and not m.bot, ctx.guild.members
+            )))
+            members_with_lr = len(list(filter(
+                lambda m:
+                    role in m.roles, ctx.guild.members
+            )))
+            status = "<:tickYes:342738345673228290>" if live_members == members_with_lr else "<:tickNo:342738745092734976>"
             e.description = textwrap.dedent(f"""\
             Live role: {role.name}
             Filter: {str(cursor.get('filter'))}
@@ -240,10 +425,10 @@ class LiveRole(commands.Cog):
 
             **Live role status: {status}**
             """)
-            e.set_footer(text="Note: This command will not work properly if a filter role has been set")
             await ctx.send(embed=e)
-        except:
+        except Exception:
             await ctx.send(traceback.format_exc())
+
 
 class Notifs(commands.Cog):
     def __init__(self, bot):
@@ -254,94 +439,192 @@ class Notifs(commands.Cog):
     async def notif(self, ctx):
         if ctx.invoked_subcommand is None:
             msgs = await lang.get_lang(ctx)
-            await ctx.send(embed=lang.EmbedBuilder(msgs['notifs']['command_usage']))
+            await ctx.send(
+                embed=lang.EmbedBuilder(msgs['notifs']['command_usage'])
+            )
 
     @notif.command(no_pm=True)
-    async def add(self, ctx, discord_channel: discord.TextChannel = None, twitch_user: str = None, *, msg: str = None):
+    async def add(
+        self,
+        ctx,
+        discord_channel: discord.TextChannel = None,
+        twitch_user: str = None,
+        *,
+        msg: str = None
+    ):
         """Sets up notifications for a Twitch user in the specified channel."""
         msgs = await lang.get_lang(ctx)
         try:
             if not ctx.guild:
                 return await ctx.send(msgs['permissions']['no_pm'])
-            if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
-                return await ctx.send(msgs['permissions']['user_need_perm'].format(permission="Manage Server"))
-            await ctx.send("**Notice:** The preferred method for adding notifications is now through the dashboard. We recommend that you use <https://dash.twitchbot.io> for a better experience.")
-            prem_check = requests.get(f"https://api.twitchbot.io/premium/{ctx.author.id}", headers={"X-Auth-Key": settings.DashboardKey})
-            if prem_check.json().get('premium') != True or prem_check.status_code != 200:
+            if not ctx.author.permissions_in(ctx.message.channel).manage_guild:
+                return await ctx.send(
+                    msgs['permissions']['user_need_perm']
+                    .format(permission="Manage Server")
+                )
+            prem_check = requests.get(
+                f"https://api.twitchbot.io/premium/{ctx.author.id}",
+                headers={
+                    "X-Auth-Key": settings.DashboardKey
+                }
+            )
+            is_client_err = 499 >= prem_check.status_code > 299
+            if prem_check.json().get('premium') is not True or is_client_err:
                 channels = list(map(lambda c: str(c.id), ctx.guild.channels))
-                serv_notifs = r.table('notifications').filter(lambda obj: r.expr(channels).contains(obj['channel'])).count().run(self.bot.rethink, durability="soft")
+                serv_notifs = r.table('notifications')\
+                    .filter(
+                        lambda obj: r.expr(channels).contains(obj['channel'])
+                    )\
+                    .count()\
+                    .run(self.bot.rethink)
                 if serv_notifs > 25:
                     return await ctx.send(msgs['notifs']['limit_reached'])
             s = None
             username = None
+            await ctx.send(msgs['notifs']['dashboard_notice'])
             if discord_channel is None:
                 await ctx.send(msgs['notifs']['prompt1'])
                 try:
-                    m = await self.bot.wait_for('message', check=lambda m: m.channel == ctx.channel and m.author.id == ctx.author.id, timeout=60)
-                    discord_channel = discord.utils.find(lambda c: c.name.lower().startswith(m.clean_content.strip("#").lower()), ctx.guild.text_channels)
+                    m = await self.bot.wait_for(
+                        'message',
+                        check=lambda m:
+                            m.channel == ctx.channel
+                            and m.author.id == ctx.author.id,
+                        timeout=60
+                    )
+                    discord_channel = discord.utils.find(
+                        lambda c:
+                            c.name.lower().startswith(
+                                m.clean_content.strip("#").lower()
+                            ),
+                        ctx.guild.text_channels
+                    )
                     if discord_channel is None:
-                        return await ctx.send(msgs['notifs']['text_channel_not_found'])
+                        return await ctx.send(
+                            msgs['notifs']['text_channel_not_found']
+                        )
                 except asyncio.TimeoutError:
                     return await ctx.send(msgs['notifs']['response_timeout'])
             perms = discord_channel.permissions_for(ctx.guild.me)
-            check_val = functions.CheckMultiplePerms(perms, "read_messages", "send_messages", "embed_links", "external_emojis")
-            if check_val != True:
-                return await ctx.send(msgs['permissions']['bot_need_perm'].format(permission=check_val))
-            if twitch_user == None:
+            check_val = functions.CheckMultiplePerms(
+                perms,
+                "read_messages",
+                "send_messages",
+                "embed_links",
+                "external_emojis"
+            )
+            if check_val is not True:
+                return await ctx.send(
+                    msgs['permissions']['bot_need_perm']
+                    .format(permission=check_val)
+                )
+            if twitch_user is None:
                 await ctx.send(msgs['notifs']['prompt2'])
                 try:
-                    m = await self.bot.wait_for('message', check=lambda m: m.channel == ctx.channel and m.author.id == ctx.author.id, timeout=60)
+                    m = await self.bot.wait_for(
+                        'message',
+                        check=lambda m:
+                            m.channel == ctx.channel
+                            and m.author.id == ctx.author.id,
+                        timeout=60
+                    )
                     username = m.content.split('/')[-1]
-                    s = http.TwitchAPIRequest("https://api.twitch.tv/helix/users?login=" + username)
+                    s = http.TwitchAPIRequest(
+                        f"https://api.twitch.tv/helix/users?login={username}"
+                    )
                     if s.status_code == 404:
-                        return await ctx.send(msgs['notifs']['twitch_user_not_found'])
+                        return await ctx.send(
+                            msgs['notifs']['twitch_user_not_found']
+                        )
                     elif "data" not in s.json().keys():
-                        return await ctx.send(f"{msgs['games']['generic_error']} {s.status_code}")
+                        return await ctx.send(
+                            f"{msgs['games']['generic_error']} {s.status_code}"
+                        )
                     elif len(s.json().get('data', {})) == 0:
-                        return await ctx.send(msgs['notifs']['twitch_user_not_found'])
+                        return await ctx.send(
+                            msgs['notifs']['twitch_user_not_found']
+                        )
                     elif s.status_code > 399:
-                        return await ctx.send(f"{msgs['games']['generic_error']} {s.status_code}")
+                        return await ctx.send(
+                            f"{msgs['games']['generic_error']} {s.status_code}"
+                        )
                 except asyncio.TimeoutError:
                     return await ctx.send(msgs['notifs']['response_timeout'])
             else:
                 username = twitch_user.split('/')[-1]
-                s = http.TwitchAPIRequest("https://api.twitch.tv/helix/users?login=" + username)
+                s = http.TwitchAPIRequest(
+                    f"https://api.twitch.tv/helix/users?login={username}"
+                )
                 if s.status_code == 404 or len(s.json().get('data', {})) == 0:
-                    return await ctx.send(msgs['notifs']['twitch_user_not_found'])
+                    return await ctx.send(
+                        msgs['notifs']['twitch_user_not_found']
+                    )
             try:
                 s = s.json()['data'][0]
             except KeyError as e:
-                return await ctx.send(f"{msgs['notifs']['invalid_data']} KeyError: f{str(e)}")
+                return await ctx.send(
+                    f"{msgs['notifs']['invalid_data']} no index: f{str(e)}"
+                )
             except IndexError as e:
-                return await ctx.send(f"{msgs['notifs']['invalid_data']} IndexError: f{str(e)}")
+                return await ctx.send(
+                    f"{msgs['notifs']['invalid_data']} no index: f{str(e)}"
+                )
             if self.regex.match(username) is None:
                 return await ctx.send(msgs['notifs']['malformed_user'])
-            if msg == None:
+            if msg is None:
                 await ctx.send(msgs['notifs']['prompt3'])
                 try:
-                    m = await self.bot.wait_for('message', check=lambda m: m.channel == ctx.channel and m.author.id == ctx.author.id, timeout=180)
-                    if m.content.lower() == 'default' or m.content.lower() == '`default`':
-                        msg = msgs['notifs']['default_msg'].format(channel=username)
+                    m = await self.bot.wait_for(
+                        'message',
+                        check=lambda m:
+                            m.channel == ctx.channel
+                            and m.author.id == ctx.author.id,
+                        timeout=180
+                    )
+                    if m.content.lower() in ['default', '`default`']:
+                        msg = msgs['notifs']['default_msg']\
+                            .format(channel=username)
                     else:
                         msg = m.content
                 except asyncio.TimeoutError:
                     return await ctx.send(msgs['notifs']['response_timeout'])
             try:
-                object = {"channel": str(discord_channel.id), "streamer": s['id'], "name": username, "last_stream_id": None, "message": msg}
-                existing_notif = r.table('notifications').filter((r.row['streamer'] == s['id']) & (r.row['channel'] == str(discord_channel.id)))
-                if existing_notif.count().run(self.bot.rethink, durability="soft") == 0:
-                    r.table('notifications').insert(object).run(self.bot.rethink, durability="soft", noreply=True)
+                object = {
+                    "channel": str(discord_channel.id),
+                    "streamer": s['id'],
+                    "name": username,
+                    "last_stream_id": None,
+                    "message": msg
+                }
+                existing_notif = r.table('notifications')\
+                    .filter(
+                        (r.row['streamer'] == s['id'])
+                        & (r.row['channel'] == str(discord_channel.id))
+                    )
+                if existing_notif.count().run(self.bot.rethink) == 0:
+                    r.table('notifications')\
+                        .insert(object)\
+                        .run(self.bot.rethink, durability="soft", noreply=True)
                 else:
-                    existing_notif.update(object).run(self.bot.rethink, durability="soft")
-                return await ctx.send(msgs['notifs']['add_success'].format(user=username, channel=discord_channel.mention))
+                    existing_notif\
+                        .update(object)\
+                        .run(self.bot.rethink, durability="soft", noreply=True)
+                return await ctx.send(
+                    msgs['notifs']['add_success']
+                    .format(user=username, channel=discord_channel.mention)
+                )
             except KeyError as e:
-                return await ctx.send(msgs['notifs']['twitch_user_not_found_alt'])
+                return await ctx.send(
+                    msgs['notifs']['twitch_user_not_found_alt']
+                )
             except IndexError as e:
-                return await ctx.send(msgs['notifs']['twitch_user_not_found_alt'])
-            except:
+                return await ctx.send(
+                    msgs['notifs']['twitch_user_not_found_alt']
+                )
+            except Exception:
                 raise
-        except:
-            await ctx.send(traceback.format_exc())
+        except Exception:
+            raise
 
     @notif.command(no_pm=True)
     async def list2(self, ctx, channel: discord.TextChannel = None):
@@ -350,12 +633,25 @@ class Notifs(commands.Cog):
         if not ctx.guild:
             return await ctx.send(msgs['permissions']['no_pm'])
         channel = channel or ctx.channel
-        notifs = list(r.table('notifications').filter(r.row['channel'].eq(str(channel.id))).run(self.bot.rethink, durability="soft"))
+        notifs = r.table('notifications')\
+            .filter(r.row['channel'].eq(str(channel.id)))\
+            .run(self.bot.rethink)
+        notifs = list(notifs)
         if len(notifs) == 0:
             return await ctx.send(msgs['notifs']['no_notifs'])
-        e = discord.Embed(color=0x6441A4, title=f"Notifications for #{ctx.channel.name}", description=f"Notification count: {len(notifs)}\n[View on Dashboard](https://dash.twitchbot.io/servers/{ctx.guild.id})")
+        e = discord.Embed(
+            color=0x6441A4,
+            title=f"Notifications for #{ctx.channel.name}",
+            description=''.join([
+                f"Notification count: {len(notifs)}\n[View on Dashboard]",
+                f"(https://dash.twitchbot.io/servers/{ctx.guild.id})"
+            ])
+        )
         for notif in notifs:
-            e.add_field(name=notif.get('name', notif['streamer']), value=notif['message'])
+            e.add_field(
+                name=notif.get('name', notif['streamer']),
+                value=notif['message']
+            )
         pager = paginator.EmbedPaginator(e)
         await pager.page(ctx)
 
@@ -367,32 +663,59 @@ class Notifs(commands.Cog):
             return await ctx.send(msgs['permissions']['no_pm'])
         if channel is None:
             channel = ctx.channel
-        f = list(r.table('notifications').filter(r.row['channel'].eq(str(channel.id))).run(self.bot.rethink, durability="soft"))
-        e = discord.Embed(color=discord.Color(0x6441A4), title=msgs['notifs']['list_title'].format(channel=channel.name), description="There are {} streamer notifications set up for {}".format(len(f), channel.mention))
+        f = r.table('notifications')\
+            .filter(r.row['channel'].eq(str(channel.id)))\
+            .run(self.bot.rethink)
+        f = list(f)
+        e = discord.Embed(
+            color=discord.Color(0x6441A4),
+            title=msgs['notifs']['list_title'].format(channel=channel.name),
+            description=''.join([
+                f"There are {len(f)} streamer notifications",
+                f"set up for {channel.mention}"
+            ])
+        )
         msg = ""
-        for notif in list(f):
-            msg += f"**{notif.get('name', notif['streamer'])}** - {notif['message']}\n"
+        msg = ''.join([
+            f"**{n.get('name', n['streamer'])}**: {n['message']}" for n in f
+        ])
         if len(msg) > 1024:
             msg = ""
             e.description += f"\n{msgs['notifs']['list_embed_limit']}"
             for notif in f:
                 msg += f"{notif.get('name', notif['streamer'])}\n"
-        e.add_field(name=msgs['notifs']['notifications'], value=msg[:1024] or msgs['notifs']['no_notifs'])
+        e.add_field(
+            name=msgs['notifs']['notifications'],
+            value=msg[:1024] or msgs['notifs']['no_notifs']
+        )
         e.set_footer(icon_url=ctx.guild.icon_url, text=ctx.guild.name)
         await ctx.send(embed=e)
 
     @notif.command(aliases=["del", "delete"], no_pm=True)
-    async def remove(self, ctx, discord_channel: discord.TextChannel, twitch_user: str = None, *, flags=""):
+    async def remove(
+        self,
+        ctx,
+        discord_channel: discord.TextChannel,
+        twitch_user: str = None,
+        *,
+        flags=""
+    ):
         """Deletes notifications for a Twitch user in the specified channel."""
         msgs = await lang.get_lang(ctx)
         flags = flags.split(" ")
         if not ctx.guild:
             return await ctx.send(msgs['permissions']['no_pm'])
-        if not ctx.message.author.permissions_in(ctx.message.channel).manage_guild:
-            return await ctx.send(msgs['permissions']['user_need_perm'].format(permission="Manage Server"))
-        if twitch_user == None:
-            notifs = r.table('notifications').filter(r.row['channel'].eq(str(discord_channel.id)))
-            cnt = notifs.count().run(self.bot.rethink, durability="soft")
+        if not ctx.author.permissions_in(ctx.message.channel).manage_guild:
+            return await ctx.send(
+                msgs['permissions']['user_need_perm']
+                .format(permission="Manage Server")
+            )
+        if twitch_user is None:
+            notifs = r.table('notifications')\
+                .filter(r.row['channel'].eq(str(discord_channel.id)))
+            cnt = notifs\
+                .count()\
+                .run(self.bot.rethink, durability="soft")
             await ctx.send(f":warning: {msgs['notifs']['bulk_delete_confirm']}".format(count=cnt, channel=discord_channel.mention))
             try:
                 m = await self.bot.wait_for('message', check=lambda m: m.author.id == ctx.author.id and m.channel.id == ctx.channel.id, timeout=60)
@@ -592,4 +915,5 @@ async def poll4(bot):
 def setup(bot):
     bot.add_cog(LiveRole(bot))
     bot.add_cog(Notifs(bot))
-    bot.loop.create_task(poll4(bot))
+    if not settings.UseBetaBot:
+        bot.loop.create_task(poll4(bot))

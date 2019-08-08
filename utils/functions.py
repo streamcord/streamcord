@@ -1,5 +1,3 @@
-from colorama import Fore, Back, Style
-from colorama import init as color_init
 from textwrap import dedent
 from os import name as os_name
 import time
@@ -53,10 +51,10 @@ class ColorFormatter(logging.Formatter):
         super().__init__(fmt, datefmt)
         self.levels = {
             "DEBUG": "VERB",
-            "INFO": f"{Back.BLUE+Fore.WHITE}INFO{Style.RESET_ALL}",
-            "WARNING": f"{Back.YELLOW+Fore.BLACK}WARN{Style.RESET_ALL}",
-            "ERROR": f"{Back.RED+Fore.WHITE}ERR!{Style.RESET_ALL}",
-            "CRITICAL": f"{Back.RED+Fore.WHITE}ERR!{Style.RESET_ALL}",
+            "INFO": f"INFO",
+            "WARNING": f"WARN",
+            "ERROR": f"ERR!",
+            "CRITICAL": f"ERR!",
         }
 
     def format(self, record):
@@ -66,15 +64,9 @@ class ColorFormatter(logging.Formatter):
 
 
 def initColoredLogging():
-    if os_name == 'nt':
-        color_init(autoreset=True)
     stream = logging.StreamHandler()
     stream.setFormatter(ColorFormatter(
-        dedent(
-            f"""\
-            %(levelname)s {Style.RESET_ALL+Style.DIM}\
-            %(name)s @ %(asctime)s{Style.RESET_ALL} >> %(message)s\
-        """),
+        f"""%(levelname)s %(name)s @ %(asctime)s >> %(message)s""",
         datefmt='%H:%M.%S'
     ))
     return stream

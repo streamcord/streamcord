@@ -20,9 +20,8 @@ async def change_presence(bot):
 async def post_stats(bot):
     await change_presence(bot)
     async with aiohttp.ClientSession() as session:
-        clindex = round(min(bot.shard_ids)/10)  # 10 shards per cluster
         payload = {
-            "cluster_index": clindex,
+            "cluster_index": bot.cluster_index,
             "guild_count": len(bot.guilds),
             "member_count": len(list(bot.get_all_members())),
             "active_voice_sessions": len(bot.active_vc),

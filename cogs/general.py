@@ -41,13 +41,13 @@ class General(commands.Cog):
                 value=uptime,
                 inline=False
             )
+            lr_cnt = r.table('live_role').count().run(self.bot.rethink)
+            notif_cnt = r.table('notifications').count().run(self.bot.rethink)
             e.add_field(
                 name=msgs['general']['stats_command']['usage'],
                 value=dedent(f"""\
-                    **·** {len(self.bot.guilds)} servers
-                    **·** {len(self.bot.users)} members
-                    **·** {r.table('live_role').count().run(self.bot.rethink, durability="soft")} live roles
-                    **·** {r.table('notifications').count().run(self.bot.rethink, durability="soft")} stream notifications
+                    **·** {lr_cnt} live roles
+                    **·** {notif_cnt} stream notifications
                     """)
             )
             e.add_field(
@@ -69,6 +69,8 @@ class General(commands.Cog):
                 e.add_field(
                     name=msgs['general']['stats_command']['shard_info'],
                     value=dedent(f"""\
+                        **·** {len(self.bot.guilds)} servers
+                        **·** {len(self.bot.users)} members
                         **·** Current shard: {ctx.guild.shard_id}
                         **·** Shard latency: {round(self.bot.latency*1000)}ms
                         **·** Total shards: {self.bot.shard_count}
@@ -78,7 +80,7 @@ class General(commands.Cog):
                 name=msgs['general']['stats_command']['system'],
                 value=dedent(f"""\
                     **·** {psutil.cpu_percent(interval=1)}% CPU
-                    **·** {round(mem.used/1000000)}/{round(mem.total/1000000)}MB RAM used
+                    **·** {round(mem.used/1000000)}/{round(mem.total/1000000)}MB RAM
                     """)
             )
             e.add_field(
@@ -181,9 +183,9 @@ def setup(bot):
                         msgs['errors']['not_started']
                     )
                 if ctx.guild:
-                    logging.info("{0.author.id} in {0.guild.id}: {0.clean_content}".format(ctx))
+                    logging.info(f"{ctx.author.id} in {ctx.guild.id}: {ctx.clean_content}")
                 else:
-                    logging.info("{0.author.id} in DM: {0.clean_content}".format(ctx))
+                    logging.info(f"{ctx.author.id} in DM: {ctx.clean_content}")
                 help_cmd = tuple(map(lambda t: t + "help", bot.command_prefix))
                 if ctx.content.lower() in help_cmd:
                     # send help command
