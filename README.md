@@ -5,7 +5,7 @@
 
 Browse Twitch, get stream notifications, and listen to streams right from your Discord server.
 
-We have made Streamcord open-sourced to show how a functional example of how a Discord bot can connect to and interface with the Duscird API, and so that the Discord community can help contribute to and improve Streamcord.
+We have made Streamcord open-sourced to show how a functional example of how a Discord bot can connect to and interface with the Discord API, and so that the community can help contribute to and improve Streamcord even further.
 
 [Website](https://streamcord.io/twitch/)
 –
@@ -15,7 +15,7 @@ We have made Streamcord open-sourced to show how a functional example of how a D
 –
 [Support Center](https://help.streamcord.io)
 
-## Invite TwitchBot
+## Invite Streamcord
 
 [Invite Streamcord](https://link.twitchbot.io/invite)
 to a server you have the `Manage Server` permission in.
@@ -24,7 +24,7 @@ to a server you have the `Manage Server` permission in.
 
 Streamcord does not include an Open-Source license. This means that this software is copyrighted and all rights reserved. You can learn more about this here: https://choosealicense.com/no-permission/
 
-We are not offering any support for people who want to clone or redistribute Streamcord for their own use. You will likely not be able to run your own instance of TwitchBot without extensive modifications of the source code.
+We are not offering any support for people who want to clone or redistribute Streamcord for their own use. You will likely not be able to run your own instance of Streamcord without extensive modifications of the source code.
 
 ## Requirements
 
