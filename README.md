@@ -3,15 +3,17 @@
 ![dbl servers](https://discordbots.org/api/widget/servers/375805687529209857.svg)
 ![dbl library](https://discordbots.org/api/widget/lib/375805687529209857.svg)
 
+> The code published in this repo is very outdated. We plan to release the Java rewrite source code on GitHub once we are nearing a public beta.
+
 Browse Twitch, get stream notifications, and listen to streams right from your Discord server.
 
 We have made Streamcord open-sourced to show how a functional example of how a Discord bot can connect to and interface with the Discord API, and so that the community can help contribute to and improve Streamcord even further.
 
 [Website](https://streamcord.io/twitch/)
 –
-[Dashboard](https://dash.twitchbot.io)
+[Dashboard](https://dash.streamcord.io)
 –
-[Discord Server](https://link.twitchbot.io/support)
+[Discord Server](https://discord.gg/UNYzJqV)
 –
 [Support Center](https://help.streamcord.io)
 
