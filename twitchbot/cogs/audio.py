@@ -1,11 +1,12 @@
-import discord
-import wavelink
-import aiohttp
-
-from discord.ext import commands
-from utils import settings, lang, http
+from os import getenv
 from urllib.parse import urlparse
 from secrets import token_hex
+
+import discord
+from discord.ext import commands
+
+import wavelink
+from ..utils import lang
 
 
 class Audio(commands.Cog):
@@ -22,10 +23,10 @@ class Audio(commands.Cog):
         await self.bot.wait_until_ready()
 
         await self.bot.wavelink.initiate_node(
-            host='192.168.86.42',
+            host='lavalink host',
             port=2333,
-            rest_uri='http://192.168.86.42:2333/',
-            password=settings.LavalinkPassword,
+            rest_uri='lavalink rest uri',
+            password=getenv('LAVALINK_PASS'),
             identifier=f'cluster-{self.bot.cluster_index}-{token_hex(5)}',
             region='us_central'
         )
@@ -49,28 +50,8 @@ class Audio(commands.Cog):
     async def play(self, ctx, *, query):
         msgs = await lang.get_lang(ctx)
 
-        is_prem, status = await http.bot_api_req(f'/premium/{ctx.author.id}')
-        if is_prem.get('premium') is False or status != 200:
-            # check if the user has voted w/in the last 12 hours
-            vote, status = await http.bot_api_req(
-                f'/users/{ctx.author.id}/votes', use_dash=True
-            )
-            if vote.get('active') is False or status != 200:
-                # fallback in case the dashboard failed
-                r = http.BotLists.DBLRequest(
-                    f'/bots/375805687529209857/check?userId={ctx.author.id}'
-                )
-                if r.status_code == 200 and r.json().get('voted') != 1:
-                    # user is not premium and has not upvoted
-                    return await ctx.send(
-                        embed=lang.EmbedBuilder(
-                            msgs['audio']['need_upvote_to_continue']
-                        )
-                    )
-
         url = urlparse(query)
         query = "https://twitch.tv/" + url.path.strip("/")
-        print(query)
         tracks = await self.bot.wavelink.get_tracks(query)
         if not tracks:
             return await ctx.send(

@@ -1,19 +1,17 @@
-from discord.ext import commands
-import discord
 import time
-import requests
-import aiohttp
 import sys
-import os
-from utils import presence, lang, paginator, settings, functions
+from os import getenv
 from textwrap import dedent
-import psutil
-import tinydb
-import datadog
 import logging
 import traceback
-import rethinkdb as r
-r = r.RethinkDB()
+
+import discord
+from discord.ext import commands
+import psutil
+import requests
+from rethinkdb import RethinkDB
+from ..utils import lang, paginator, functions
+r = RethinkDB()
 
 
 class General(commands.Cog):
@@ -23,7 +21,14 @@ class General(commands.Cog):
     @commands.command(aliases=["commands"])
     async def cmds(self, ctx):
         msgs = await lang.get_lang(ctx)
-        await ctx.send(embed=lang.EmbedBuilder(msgs['commands_list']))
+        e = lang.EmbedBuilder(msgs['commands_list'])
+        if getenv('ENABLE_PRO_FEATURES') == '1':
+            e.title = "<:twitch:404633403603025921> Streamcord Pro Commands"
+            e.add_field(
+                name="Moderation",
+                value="`?twitch ban <user> [reason]`\n`?twitch kick <user> [reason]`\n`?twitch purge <n>` - Deletes the last n messages",
+                inline=False)
+        await ctx.send(embed=e)
 
     @commands.cooldown(rate=1, per=3)
     @commands.command()
@@ -34,15 +39,15 @@ class General(commands.Cog):
                 color=discord.Color(0x6441A4),
                 title=msgs['general']['stats_command']['title']
             )
-            uptime = functions.GetBotUptime(self.bot.uptime)
+            uptime = functions.get_bot_uptime(self.bot.uptime)
             mem = psutil.virtual_memory()
             e.add_field(
                 name=msgs['general']['stats_command']['uptime'],
                 value=uptime,
                 inline=False
             )
-            lr_cnt = r.table('live_role').count().run(self.bot.rethink)
-            notif_cnt = r.table('notifications').count().run(self.bot.rethink)
+            lr_cnt = await r.table('live_role').count().run(self.bot.rethink)
+            notif_cnt = await r.table('notifications').count().run(self.bot.rethink)
             e.add_field(
                 name=msgs['general']['stats_command']['usage'],
                 value=dedent(f"""\
@@ -53,6 +58,7 @@ class General(commands.Cog):
             e.add_field(
                 name=msgs['general']['stats_command']['version'],
                 value=dedent(f"""\
+                    **·** Version {getenv('VERSION')}
                     **·** Python {sys.version.split(' ')[0]}
                     **·** discord.py {discord.__version__}
                     """)
@@ -90,7 +96,7 @@ class General(commands.Cog):
             )
             e.add_field(
                 name=msgs['general']['stats_command']['developer'],
-                value="Akira#8185 - [Website](https://akira.arraycord.dev)",
+                value="Akira#8185",
                 inline=False
             )
             await ctx.send(embed=e)
@@ -120,13 +126,13 @@ class General(commands.Cog):
                 color=discord.Color(0x6441A4),
                 title=msgs['general']['status']['title']
             )
-            r = requests.get(
+            re = requests.get(
                 "https://cjn0pxg8j9zv.statuspage.io/api/v2/summary.json"
             )
-            r.raise_for_status()
-            r = r.json()["components"]
-            for c in r:
-                emote = lang._emoji.cmd_success
+            re.raise_for_status()
+            re = re.json()["components"]
+            for c in re:
+                emote = lang.emoji.cmd_success
                 if c["status"] in ["partial_outage", "major_outage"]:
                     emote = lang.emoji.cmd_fail
                 e.add_field(
@@ -145,21 +151,21 @@ class General(commands.Cog):
             return await ctx.send(
                 msgs['general']['lang_current'].format(lang=msgs['_lang_name'])
             )
-        else:
-            if language == "help":
-                lang_help = await lang.gen_lang_help(ctx)
-                e = paginator.EmbedPaginator(lang_help, per_page=7)
-                return await e.page(ctx)
-            if language not in self.bot.languages:
-                return await ctx.send(msgs['general']['lang_unavailable'])
-            cursor = r.table('user_options').insert(
+        if language == "help":
+            lang_help = await lang.gen_lang_help(ctx)
+            e = paginator.EmbedPaginator(lang_help, per_page=7)
+            return await e.page(ctx)
+        if language not in self.bot.languages:
+            return await ctx.send(msgs['general']['lang_unavailable'])
+        await r.table('user_options') \
+            .insert(
                 {"id": str(ctx.author.id), "lang": language},
                 conflict="update"
-            ).run(self.bot.rethink, durability="soft", noreply=True)
-            msgs = await lang.get_lang(ctx)
-            return await ctx.send(
-                msgs['general']['lang_set'].format(lang=msgs['_lang_name'])
-            )
+            ) \
+            .run(self.bot.rethink, durability="soft", noreply=True)
+        msgs = await lang.get_lang(ctx, force=language)
+        return await ctx.send(
+            msgs['general']['lang_set'].format(lang=msgs['_lang_name']))
 
 
 def setup(bot):
@@ -170,44 +176,46 @@ def setup(bot):
         try:
             if ctx.author.bot:
                 return
-            elif ctx.content.lower().startswith(tuple(bot.command_prefix)):
-                if ctx.author.id in settings.BannedUsers:
+            if ctx.content.lower().startswith(tuple(bot.command_prefix)):
+                if str(ctx.author.id) in getenv('BANNED_USERS').split(','):
                     return await ctx.channel.send(
-                        "You have been banned from using TwitchBot."
-                    )
+                        "You have been banned from using Streamcord.")
                 if not bot.is_ready():
                     msgs = await lang.get_lang(
-                        lang.FakeCtxObject(bot, ctx.author)
-                    )
-                    return await ctx.channel.send(
-                        msgs['errors']['not_started']
-                    )
+                        lang.FakeCtxObject(bot, ctx.author))
+                    return await ctx.channel.send(msgs['errors']['not_started'])
                 if ctx.guild:
-                    logging.info(f"{ctx.author.id} in {ctx.guild.id}: {ctx.clean_content}")
+                    logging.info('%i in %i: %s', ctx.author.id, ctx.guild.id, ctx.clean_content)
                 else:
-                    logging.info(f"{ctx.author.id} in DM: {ctx.clean_content}")
+                    logging.info('%i in DM: %s', ctx.author.id, ctx.clean_content)
                 help_cmd = tuple(map(lambda t: t + "help", bot.command_prefix))
                 if ctx.content.lower() in help_cmd:
+                    await ctx.channel.trigger_typing()
                     # send help command
                     msgs = await lang.get_lang(
-                        lang.FakeCtxObject(bot, ctx.author)
-                    )
-                    if not settings.UseBetaBot:
-                        datadog.statsd.increment(
-                            'bot.commands_run',
-                            tags=["command:help"]
-                        )
-                    return await ctx.channel.send(
-                        embed=lang.EmbedBuilder(msgs['help_command'])
-                    )
-                else:
-                    splitter = ctx.content.split(' && ')
-                    for s in splitter:
-                        ctx.content = s
-                        await bot.process_commands(ctx)
+                        lang.FakeCtxObject(bot, ctx.author))
+                    await functions.dogstatsd.increment('bot.commands_run', tags=['command:help'])
+                    e = lang.EmbedBuilder(msgs['help_command'])
+                    if getenv('ENABLE_PRO_FEATURES') == '1':
+                        e.title = "<:twitch:404633403603025921> **Streamcord Pro Help**"
+                        e.set_field_at(
+                            0,
+                            name="Commands",
+                            value="Streamcord responds to commands starting with `?twitch`. Type `?twitch commands` to view all runnable commands.")
+                        e.remove_field(4)
+                        e.remove_field(5)
+                        e.insert_field_at(
+                            0,
+                            name="Pro Bot",
+                            value="This server is running a special instance of Streamcord only available to Patrons and partners. [Learn More](https://streamcord.io/twitch/pro)",
+                            inline=False)
+                    return await ctx.channel.send(embed=e)
+                splitter = ctx.content.split(' && ')
+                for s in splitter:
+                    ctx.content = s
+                    await bot.process_commands(ctx)
             elif ctx.guild is None:
                 return
         except Exception:
-            await ctx.channel.send(
-                f"An unexpected error occurred:\n{traceback.format_exc()}"
-            )
+            msgs = await lang.get_lang(lang.FakeCtxObject(bot, ctx.author))
+            await ctx.channel.send(f"{msgs['games']['generic_error']}\n{traceback.format_exc()}")

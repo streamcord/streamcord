@@ -1,7 +1,6 @@
 __pycache__/
-*.pyc
-*json
-PUBLIC_VERSION_DO_NOT_EDIT
-i18n/
+i18n_resources/
+i18n_resources.zip
 legacy/
-launch*.py
+venv/
+PUBLIC_VERSION_DO_NOT_EDIT

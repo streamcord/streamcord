@@ -1,6 +1,7 @@
 import asyncio
-import discord
 import math
+
+import discord
 
 
 class EmbedPaginator:
@@ -11,7 +12,7 @@ class EmbedPaginator:
         self._message = None
         self._title_format = self.embed.title + " - {} / {}"
         self._current_page = 0
-        if type(embed.fields) == discord.Embed.Empty:
+        if embed.fields == discord.Embed.Empty:
             raise ValueError("Embed needs at least one field.")
         self._count = math.ceil(len(embed.fields) / per_page)
         self._pages = [
@@ -30,14 +31,16 @@ class EmbedPaginator:
         self._update_page(0)
         message = await ctx.send(embed=self.embed)
         await message.add_reaction("◀")
-        await message.add_reaction("❌")
         await message.add_reaction("▶")
         while True:
             try:
                 reaction, user = await ctx.bot.wait_for(
                     'reaction_add',
                     timeout=self.timeout,
-                    check=lambda r, u: r.message.channel == ctx.channel and u == ctx.author and r.message.id == message.id
+                    check=lambda r, u:
+                    r.message.channel == ctx.channel
+                    and u == ctx.author
+                    and r.message.id == message.id
                 )
                 if str(reaction.emoji) == "◀":
                     if self._current_page == 0:
@@ -45,10 +48,6 @@ class EmbedPaginator:
                     else:
                         self._update_page(self._current_page - 1)
                         await message.edit(embed=self.embed)
-                elif str(reaction.emoji) == "❌":
-                    await message.delete()
-                    await ctx.message.add_reaction("✅")
-                    break
                 elif str(reaction.emoji) == "▶":
                     if self._current_page == self._count-1:
                         pass
@@ -57,13 +56,11 @@ class EmbedPaginator:
                         await message.edit(embed=self.embed)
                 await message.remove_reaction(reaction.emoji, user)
             except asyncio.TimeoutError:
-                await message.delete()
-                await ctx.message.add_reaction("⏱")
+                await message.add_reaction("⏱")
                 break
-            except Exception:
-                raise
 
 
+# pylint: disable=too-few-public-methods
 class DiscordPaginationExtender:
     def __init__(self, pages, timeout: int = 90):
         self.pages = pages
@@ -73,21 +70,23 @@ class DiscordPaginationExtender:
     async def page(self, ctx):
         message = await ctx.send(self.pages[self._current_page])
         await message.add_reaction("◀")
-        await message.add_reaction("❌")
         await message.add_reaction("▶")
         while True:
             try:
-                reaction, user = await ctx.bot.wait_for('reaction_add', timeout=self.timeout, check = lambda r, u: r.message.channel == ctx.channel and u == ctx.author and r.message.id == message.id)
+                reaction, user = await ctx.bot.wait_for(
+                    'reaction_add',
+                    timeout=self.timeout,
+                    check=lambda r, u:
+                    r.message.channel == ctx.channel
+                    and u == ctx.author
+                    and r.message.id == message.id
+                )
                 if str(reaction.emoji) == "◀":
                     if self._current_page == 0:
                         pass
                     else:
                         self._current_page -= 1
                         await message.edit(embed=self.pages[self._current_page])
-                elif str(reaction.emoji) == "❌":
-                    await message.delete()
-                    await ctx.message.add_reaction("✅")
-                    break
                 elif str(reaction.emoji) == "▶":
                     if self._current_page == len(self.pages)-1:
                         pass
@@ -96,8 +95,5 @@ class DiscordPaginationExtender:
                         await message.edit(embed=self.pages[self._current_page])
                 await message.remove_reaction(reaction.emoji, user)
             except asyncio.TimeoutError:
-                await message.delete()
-                await ctx.message.add_reaction("⏱")
+                await message.add_reaction("⏱")
                 break
-            except Exception:
-                raise

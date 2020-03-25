@@ -1,45 +1,46 @@
-from discord.ext import commands
-from utils import settings, lang, paginator, presence
-import discord
 import asyncio
-import aiohttp
+import io
+import logging
+import sys
+import textwrap
 import time
 import traceback
-import json
-import io
-import textwrap
-from contextlib import redirect_stdout
 from collections import Counter, OrderedDict
+from contextlib import redirect_stdout
 from operator import itemgetter
+from os import getenv
 from subprocess import PIPE
-import sys
-import datadog
-import logging
-import websockets.exceptions as ws
-import rethinkdb as r
-r = r.RethinkDB()
+from websockets.exceptions import ConnectionClosed
+
+import discord
+from discord.ext import commands
+
+import aiohttp
+from rethinkdb import RethinkDB
+from ..utils import lang, presence, functions
+r = RethinkDB()
+
+
+def owner_only(ctx):
+    return functions.is_owner(ctx.author.id)
 
 
 class Dev(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        if not settings.UseBetaBot:
+        if not functions.is_canary_bot():
             bot.loop.create_task(self.background_dd_report())
         bot.loop.create_task(self.daily_bot_stats())
 
-    def cleanup_code(self, content):
+    @staticmethod
+    def cleanup_code(content):
         if content.startswith('```') and content.endswith('```'):
             return '\n'.join(content.split('\n')[1:-1])
         return content.strip('` \n')
 
-    def owner_only(ctx):
-        return ctx.author.id in settings.BotOwners
-
-    @commands.check(owner_only)
     @commands.command(name="eval", hidden=True)
+    @commands.check(owner_only)
     async def _eval(self, ctx, *, body: str):
-        if ctx.author.id not in settings.BotOwners:
-            return
         env = {
             'bot': self.bot,
             'ctx': ctx,
@@ -52,7 +53,7 @@ class Dev(commands.Cog):
 
         env.update(globals())
 
-        body = self.cleanup_code(body)
+        body = Dev.cleanup_code(body)
         stdout = io.StringIO()
 
         to_compile = f'async def func():\n{textwrap.indent(body, "  ")}'
@@ -67,10 +68,12 @@ class Dev(commands.Cog):
             with redirect_stdout(stdout):
                 ret = await func()
         except Exception as e:
-            value = stdout.getvalue().replace(settings.Token, "[redacted]")
+            value = stdout.getvalue() \
+                .replace(getenv('BOT_TOKEN'), "[redacted]")
             await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
         else:
-            value = stdout.getvalue().replace(settings.Token, "[redacted]")
+            value = stdout.getvalue() \
+                .replace(getenv('BOT_TOKEN'), "[redacted]")
             try:
                 await ctx.message.add_reaction('✅')
             except Exception:
@@ -126,7 +129,7 @@ class Dev(commands.Cog):
         except Exception:
             await ctx.send(f"```\n{traceback.format_exc()}\n```")
         else:
-            await ctx.send(lang._emoji.cmd_success)
+            await ctx.send(lang.emoji.cmd_success)
 
     @commands.command(hidden=True)
     @commands.check(owner_only)
@@ -134,14 +137,14 @@ class Dev(commands.Cog):
         raise RuntimeError()
 
     async def background_dd_report(self):
-        logging.info('[datadog] waiting for bot to send ON_READY')
+        logging.info('[statsd] waiting for ready event')
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             try:
                 await presence.post_stats(self.bot)
             except Exception as e:
-                logging.error(f"Error posting dd: {type(e).__name__}: {e}")
-            await asyncio.sleep(60)
+                logging.error("Error posting statsd: %s: %s", type(e).__name__, e)
+            await asyncio.sleep(90)
 
     async def daily_bot_stats(self):
         await self.bot.wait_until_ready()
@@ -174,7 +177,7 @@ def setup(bot):
     @bot.event
     async def on_error(event, *args, **kwargs):
         exc = sys.exc_info()
-        if isinstance(exc[1], ws.ConnectionClosed):
+        if isinstance(exc[1], ConnectionClosed):
             pass
         elif isinstance(exc[1], discord.ConnectionClosed):
             pass
@@ -193,5 +196,6 @@ def setup(bot):
         elif isinstance(exc[1], discord.HTTPException):
             pass
         else:
-            return logging.error(f"Error {exc[0].__name__} in {event} event:\n{exc}")
-        logging.warn(f"Ignored {exc[0].__name__} error in {event} event")
+            logging.error("Error %s in %s: %s", exc[0].__name__, event, exc)
+            return
+        logging.warning("Ignored %s error in %s event", exc[0].__name__, event)
