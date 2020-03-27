@@ -1,13 +1,13 @@
 # Streamcord / TwitchBot, the best Twitch.tv bot for Discord
 # Copyright (C) Akira, 2017-2020
-# Public build - 03/25/2020
+# Public build - 03/26/2020
 
 import asyncio
 import logging
 import platform
 import time
 from os import getenv
-from sys import argv
+from tabulate import tabulate
 
 import datadog
 import discord
@@ -15,11 +15,11 @@ from discord.ext import commands
 from rethinkdb import RethinkDB
 
 from .utils import lang, functions, chttp, ws
-from .utils.lang import async_lang
 from .utils.functions import LogFilter, dogstatsd
+from .utils.lang import async_lang
 
 if getenv('VERSION') is None:
-    raise RuntimeError('Could not load dotenv')
+    raise RuntimeError('Could not load env file')
 
 if not (functions.is_canary_bot() or getenv('ENABLE_PRO_FEATURES') == '1'):
     datadog.initialize(
@@ -61,13 +61,12 @@ class TwitchBot(commands.AutoShardedBot):
             "twitchbot.cogs.general",
             "twitchbot.cogs.games",
             "twitchbot.cogs.audio",
-            "twitchbot.cogs.live",
+            "twitchbot.cogs.live_role",
+            "twitchbot.cogs.notifs",
             "twitchbot.cogs.dev",
             "twitchbot.cogs.twitch",
             "twitchbot.cogs.status_channels"
         ]
-        # if functions.is_canary_bot():
-        #     modules = [*modules]
         if getenv('ENABLE_PRO_FEATURES') == '1':
             modules.append('twitchbot.cogs.moderation')
         for m in modules:
@@ -96,21 +95,23 @@ class TwitchBot(commands.AutoShardedBot):
             round((time.time() - ctime) * 1000))
 
     async def on_ready(self):
-        print(f"""
-      _____          _ _       _     ____        _
-     |_   _|_      _(_) |_ ___| |__ | __ )  ___ | |_
-       | | \\ \\ /\\ / / | __/ __| '_ \\|  _ \\ / _ \\| __|
-       | |  \\ V  V /| | || (__| | | | |_) | (_) | |_
-       |_|   \\_/\\_/ |_|\\__\\___|_| |_|____/ \\___/ \\__|
+        print("""\
+          ___ _                                    _
+         / __| |_ _ _ ___ __ _ _ __  __ ___ _ _ __| |
+         \\__ \\  _| '_/ -_) _` | '  \\/ _/ _ \\ '_/ _` |
+         |___/\\__|_| \\___\\__,_|_|_|_\\__\\___/_| \\__,_|\
         """)
-        print(f"discord.py version: {discord.__version__}")
-        print(f"Python version: {platform.python_version()}")
-        print(f"Running on: {platform.system()} v{platform.version()}")
-        print(f"Discord user: {self.user} / {self.user.id}")
-        print(f"Connected guilds: {len(self.guilds)}")
-        print(f"Connected users: {len(list(self.get_all_members()))}")
-        print(f"Shard IDs: {getattr(self, 'shard_ids', None)}")
-        print(f"Cluster index: {self.cluster_index}")
+        table_rows = [
+            ['discord.py', f'v{discord.__version__}'],
+            ['python', f'v{platform.python_version()}'],
+            ['system', f'{platform.system()} v{platform.version()}'],
+            ['discord user', f'{self.user} (id: {self.user.id})'],
+            ['guilds', len(self.guilds)],
+            ['users', len(self.users)],
+            ['shard ids', getattr(self, 'shard_ids', 'None')],
+            ['cluster index', self.cluster_index]
+        ]
+        logging.info('\n' + tabulate(table_rows))
         self.uptime = time.time()
         await dogstatsd.increment('bot.ready_events')
 

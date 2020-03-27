@@ -9,3 +9,4 @@ rethinkdb
 flask
 wavelink
 python-dotenv
+tabulate
