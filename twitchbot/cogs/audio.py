@@ -1,11 +1,10 @@
-from os import getenv
-from urllib.parse import urlparse
-from secrets import token_hex
-
 import discord
-from discord.ext import commands
-
 import wavelink
+
+from discord.ext import commands
+from os import getenv
+from secrets import token_hex
+from urllib.parse import urlparse
 from ..utils import lang
 
 
@@ -23,9 +22,9 @@ class Audio(commands.Cog):
         await self.bot.wait_until_ready()
 
         await self.bot.wavelink.initiate_node(
-            host='lavalink host',
-            port=2333,
-            rest_uri='lavalink rest uri',
+            host=getenv('LAVALINK_HOST'),
+            port=int(getenv('LAVALINK_PORT')),
+            rest_uri=f'http://{getenv("LAVALINK_HOST")}:{getenv("LAVALINK_PORT")}/',
             password=getenv('LAVALINK_PASS'),
             identifier=f'cluster-{self.bot.cluster_index}-{token_hex(5)}',
             region='us_central'
