@@ -1,12 +1,10 @@
 import re
 import secrets
 import traceback
-from os import getenv
 from random import choice
 
 import discord
 from discord.ext import commands
-import requests
 from ..utils import lang
 
 
@@ -52,7 +50,7 @@ class Users(commands.Cog):
 
             emote = self.badges.get(rj['type'] or rj['broadcaster_type'], '')
             e = discord.Embed(
-                color=discord.Color(0x6441A4),
+                color=discord.Color(0x9146ff),
                 title=rj['login'] + emote,
                 description=rj['description'])
             e.set_author(
@@ -79,7 +77,7 @@ class Users(commands.Cog):
                 for tag in (await t.json())['data']:
                     if not tag['is_auto']:
                         tag_text.append(f"[{tag['localization_names']['en-us']}](https://www.twitch.tv/directory/all/tags/{tag['tag_id']})")
-                if tag_text == []:
+                if not tag_text:
                     tag_text = ["No stream tags"]
                 e.add_field(
                     inline=False,
@@ -111,51 +109,6 @@ class Users(commands.Cog):
         except Exception:
             await ctx.send(traceback.format_exc())
 
-    @commands.command()
-    async def connections(self, ctx, *, user: discord.User = None):
-        await ctx.trigger_typing()
-        msgs = await lang.get_lang(ctx)
-        if user is None:
-            user = ctx.author
-        r = requests.get(
-            f"http://dash.streamcord.io/api/connections/{user.id}",
-            headers={"X-Access-Token": getenv('DASHBOARD_KEY')})
-        if r.status_code == 404:
-            return await ctx.send(
-                embed=discord.Embed(
-                    description=msgs['users']['no_login_dash'],
-                    color=discord.Color.red()))
-        r.raise_for_status()
-        e = discord.Embed(color=discord.Color(0x6441A4))
-        e.set_author(
-            icon_url=user.avatar_url or user.default_avatar_url,
-            name=msgs['users']['connections'].format(user=user))
-        r = r.json()
-        if r['twitch'] is None or r.get('twitch', {'visibility': 0})['visibility'] == 0:
-            e.add_field(
-                name="Twitch",
-                value=msgs['users']['not_connected'],
-                inline=False)
-        else:
-            e.add_field(
-                name="Twitch",
-                value=msgs['users']['connected'].format(
-                    account=r['twitch']['name']),
-                inline=False)
-        if r['streamlabs'] is None:
-            e.add_field(
-                name="Streamlabs",
-                value=msgs['users']['not_connected'],
-                inline=False)
-        else:
-            e.add_field(
-                name="Streamlabs",
-                value=msgs['users']['connected'].format(
-                    account=r['streamlabs']['streamlabs']['display_name']),
-                inline=False)
-        e.set_footer(text="dash.streamcord.io")
-        await ctx.send(embed=e)
-
 
 class Streams(commands.Cog):
     def __init__(self, bot):
@@ -166,7 +119,7 @@ class Streams(commands.Cog):
         if ctx.invoked_subcommand is None:
             msgs = await lang.get_lang(ctx)
             await ctx.send(
-                embed=lang.EmbedBuilder(msgs['streams']['command_usage']))
+                embed=lang.build_embed(msgs['streams']['command_usage']))
 
     @stream.command()
     async def user(self, ctx, *, user):
@@ -191,7 +144,7 @@ class Streams(commands.Cog):
                 g = {"id": 0, "name": "Unknown"}
 
             e = discord.Embed(
-                color=discord.Color(0x6441A4),
+                color=discord.Color(0x9146ff),
                 title=r['title'],
                 description=msgs['streams']['stream_desc'].format(
                     game=g['name'],
@@ -277,7 +230,7 @@ class Clips(commands.Cog):
         if ctx.invoked_subcommand is None:
             msgs = await lang.get_lang(ctx)
             await ctx.send(
-                embed=lang.EmbedBuilder(msgs['clips']['command_usage']))
+                embed=lang.build_embed(msgs['clips']['command_usage']))
 
     @clips.command(pass_context=True, name="from", aliases=["channel"])
     @commands.cooldown(per=3, rate=1, type=commands.BucketType.user)

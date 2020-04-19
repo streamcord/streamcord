@@ -1,6 +1,8 @@
 __pycache__/
-i18n_resources/
 i18n_resources.zip
+i18n_resources/*
+!i18n_resources/en
+i18n_resources/en/*
+!i18n_resources/en/main.json
 legacy/
 venv/
-PUBLIC_VERSION_DO_NOT_EDIT

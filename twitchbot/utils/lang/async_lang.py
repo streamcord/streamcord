@@ -77,12 +77,12 @@ async def load_languages(bot):
     lang_dir = os.path.join(bot.i18n_dir, 'i18n_resources')
 
     async with aiohttp.ClientSession() as session:
-        if 'crowdin-build' not in getenv('SC_DISABLED_FEATURES'):
+        if 'crowdin-build' not in (getenv('SC_DISABLED_FEATURES') or []):
             async with session.get(f'{base_url}/export?key={ckey}') as resp:
                 resp.raise_for_status()
                 logging.info('Built Crowdin translations')
 
-        if 'crowdin-pull' not in getenv('SC_DISABLED_FEATURES'):
+        if 'crowdin-pull' not in (getenv('SC_DISABLED_FEATURES') or []):
             await pull_languages(
                 session=session,
                 bot=bot,

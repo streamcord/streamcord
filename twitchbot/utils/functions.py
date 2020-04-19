@@ -55,30 +55,7 @@ def is_banned(uid):
 
 # pylint: disable=too-few-public-methods
 class LogFilter(logging.Filter):
+    blacklist = ['unknown event', 'unknown member id']
+
     def filter(self, record):
-        return "unknown event" not in record.msg.lower()
-
-
-class LogFormatter(logging.Formatter):
-    def __init__(self):
-        super().__init__(
-            '%(levelname)s %(name)s @ %(asctime)s >> %(message)s',
-            '%H:%M.%S')
-        self.levels = {
-            "DEBUG": "VERB",
-            "INFO": "INFO",
-            "WARNING": "WARN",
-            "ERROR": "ERR!",
-            "CRITICAL": "ERR!",
-        }
-
-    def format(self, record):
-        lv = record.levelname
-        record.levelname = self.levels.get(lv, lv)
-        return super().format(record)
-
-    @staticmethod
-    def init_logging():
-        stream = logging.StreamHandler()
-        stream.setFormatter(LogFormatter())
-        return stream
+        return not any([msg in record.msg.lower() for msg in self.blacklist])

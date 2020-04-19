@@ -1,0 +1,267 @@
+{
+    "_lang_name": "English",
+    "_lang_emoji": ":flag_us::flag_gb:",
+    "_translator": "Akira#0007",
+    "audio": {
+        "author_not_in_voice_channel": "<:tickNo:342738745092734976> You need to be in a voice channel.",
+        "user_does_not_exist_or_not_streaming": "<:tickNo:342738745092734976> This user doesn't exist or is not currently streaming. Try entering a link to the channel.",
+        "now_playing": {
+            "title": "Now playing in {channel}",
+            "description": "{title}\n{viewer_count} currently watching",
+            "footer": "Type '!twitch leave' to stop the stream"
+        },
+        "not_streaming": "I'm not streaming anything on this server right now.",
+        "disconnected": "Left the voice channel."
+    },
+    "clips": {
+        "command_usage": {
+            "title": "Clips - Help",
+            "fields": [
+                {
+                    "name": "Commands",
+                    "value": "`!twitch clips from <user>` - Gets a clip from the specified Twitch user\n`!twitch clips trending` - Gets a trending clip\n`!twitch clips game <game>` - Gets a clip from the specified game"
+                }
+            ]
+        },
+        "clip_message": "Check out {user} playing {game}:\n{url}"
+    },
+    "commands_list": {
+        "title": "<:twitch:404633403603025921> Streamcord Commands",
+        "description": ":warning: __**Do not put `<>` or `[]` around command arguments.**__\n\nWe recommend using the [dashboard](https://dash.streamcord.io) to easily manage notifications and live role.",
+        "fields": [
+            {
+                "title": "General",
+                "value": "`!twitch help` - Shows bot help\n`!twitch info` - Shows bot info\n`!twitch lang` - Sets bot language\n`!twitch invite` - Displays a link to add Streamcord to your server\n`!twitch status` - Shows Twitch API status\n`!twitch ping` - Pong!",
+                "inline": false
+            },
+            {
+                "title": "Twitch",
+                "value": "`!twitch user <user>` - Gets info on a Twitch channel\n`!twitch stream user <user>` - Gets info on a user's stream\n`!twitch stream watch <user>` - Watch a Twitch stream from Discord\n`!twitch stream game <name>` - Watch someone stream the specified game\n`!twitch stream top` - Fetches info on a top stream\n`!twitch game <name>` - Gets info on a Twitch game\n`!twitch top` - Gets the most popular Twitch games",
+                "inline": false
+            },
+            {
+                "title": "Clips",
+                "value": "`!twitch clips from <user>` - Gets a clip from the specified Twitch user\n`!twitch clips trending` - Gets a trending clip\n`!twitch clips game <game>` - Gets a clip from the specified game",
+                "inline": false
+            },
+            {
+                "title": "Streamer Notifications",
+                "value": "`!twitch notif add [#discord_channel] [streamer_name] [message]` - Adds a streamer notification for a streamer to the specified channel\n`!twitch notif remove <#discord_channel> <streamer_name>` - Remove a streamer notification for a streamer to the specified channel\n`!twitch notif list [#discord_channel]` - Lists the streamer notifications for the specified channel\n`!twitch notif formatting` - Shows variables that you can insert into streamer notification messages\n`!twitch notif preview <#discord_channel> <streamer_name>` - Sends a preview message for a notification",
+                "inline": false
+            },
+            {
+                "title": "Live Role",
+                "value": "`!twitch lr set role` - Sets the Live Role for the current server\n`!twitch lr set filter` - Restricts Live Role to users with a specific role\n`!twitch lr delete` - Removes the Live Role configuration\n`!twitch lr view` - Tells you which role is currently set up\n`!twitch lr check` - Debug the live role",
+                "inline": false
+            },
+            {
+                "title": "Audio",
+                "value": "`!twitch listen <user>` - Listen to a Twitch stream in the current voice channel\n`!twitch nowplaying` - Shows the stream currently playing, if any\n`!twitch leave` - Leaves a voice channel",
+                "inline": false
+            }
+        ]
+    },
+    "errors": {
+        "err_report": "Please report this error to the developers at <https://link.twitchbot.io/support>.",
+        "forbidden": "<:tickNo:342738745092734976> I don't have the correct permissions to do that.",
+        "not_found": "<:tickNo:342738745092734976> That Discord channel was not found. Make sure you're not putting <> around it and that you're `#mention`ing it.",
+        "not_started": "Streamcord is still starting up! Please wait a few minutes before trying again.",
+        "check_fail": "<:tickNo:342738745092734976> You don't have permission to run this command.",
+        "cooldown": "<:tickNo:342738745092734976> You can run this command in {time} seconds.",
+        "conn_closed": "<:tickNo:342738745092734976> The voice connection was closed. Reason: `{reason}`",
+        "missing_arg": "<:tickNo:342738745092734976> You're missing the `{param}` parameter.",
+        "too_many_requests": "<:tickNo:342738745092734976> Third-party servers are having trouble keeping up with our requests. Please try again later."
+    },
+    "games": {
+        "no_results": "<:tickNo:342738745092734976> No results found.",
+        "view_streams": "View Streams",
+        "top_games": "<:twitch:404633403603025921> Top Games",
+        "top_games_desc": "{view_count} viewers • {channel_count} channels streaming",
+        "generic_error": "<:tickNo:342738745092734976> An error occurred:",
+        "game_details_title": "Game Information",
+        "igdb_fetch_error": "*Could not fetch game information from IGDB: {error}*",
+        "game_id": "Game ID: {id}",
+        "info_cutoff": "(continued)",
+        "game_rating": {
+            "name": "Ratings",
+            "value": "{emoji} {score} out of 10\nBased on {count} ratings"
+        },
+        "release_date": "Release Date",
+        "game_description": "Description",
+        "view_on_igdb": "View on IGDB",
+        "removal_notice": "This command has been removed from Streamcord."
+    },
+    "help_command": {
+        "title": "<:twitch:404633403603025921> **Streamcord Help**",
+        "fields": [
+            {
+                "name": "Commands",
+                "value": "Streamcord responds to commands starting with `twitch` or `!twitch`. Type `!twitch commands` to view all runnable commands.",
+                "inline": false
+            },
+            {
+                "name": "Support",
+                "value": "If you need help with Streamcord, you can visit the [support center](https://help.streamcord.io) or join the [support server](https://discord.gg/UNYzJqV).",
+                "inline": false
+            },
+            {
+                "name": "Website",
+                "value": "You can view information about Streamcord at https://streamcord.io/twitch",
+                "inline": false
+            },
+            {
+                "name": "Dashboard",
+                "value": "Easily configure your server's notifications and live role from the Streamcord Dashboard. https://dash.streamcord.io",
+                "inline": false
+            },
+            {
+                "name": "Other links",
+                "value": "[FAQ](https://streamcord.io/twitch/faq) · [Dashboard](http://dash.streamcord.io) · [Invite](https://discordapp.com/oauth2/authorize?client_id=375805687529209857&permissions=8&scope=bot&response_type=code&redirect_uri=https://streamcord.io/twitch/?invited) · [Blog](https://medium.com/twitchbot)",
+                "inline": false
+            },
+            {
+                "name": "Translations are here! :flag_mx::flag_es::flag_fr::flag_tr:",
+                "value": "Type `!twitch lang help` to view a list of languages that Streamcord is available in. Want to help us translate? Check out [Streamcord Translators](https://streamcord.io/twitch/translators) for more info.",
+                "inline": false
+            }
+        ]
+    },
+    "general": {
+        "available_translations": {
+            "title": "Available Translations",
+            "footer": "To set Streamcord's language, type !twitch lang <language>."
+        },
+        "stats_command": {
+            "title": "<:twitch:404633403603025921> Streamcord Stats",
+            "uptime": "Uptime",
+            "usage": "Usage",
+            "version": "Version",
+            "shard_info": "Shard Info",
+            "system": "System",
+            "developer": "Developer",
+            "patrons": "Patrons",
+            "links": {
+                "title": "Links",
+                "value": "**·** Website: https://streamcord.io/twitch/\n**·** Discord: https://discord.gg/UNYzJqV\n**·** Upvote: https://discordbots.org/bot/twitch/vote\n**·** Donate: https://patreon.com/devakira"
+            }
+        },
+        "invite_message_1": "**{user}**, you can invite me to a server with this link: <https://link.twitchbot.io/invite>",
+        "invite_message_2": "Need help? Join the support server: <https://link.twitchbot.io/support>",
+        "status": {
+            "title": "<:twitch:404633403603025921> Twitch Status",
+            "current_status": "Current status: `{status}`"
+        },
+        "lang_current": "Your current language for Streamcord is **{lang}**. To change it, type `!twitch lang <lang>` or `!twitch lang help`.",
+        "lang_unavailable": "<:tickNo:342738745092734976> That translation isn't available. Type `!twitch lang help` to view available languages.",
+        "lang_set": "<:tickYes:342738345673228290> Successfully set your Streamcord language to **{lang}**."
+    },
+    "notifs": {
+        "command_usage": {
+            "title": "Streamer Notifications - Help",
+            "description": "Streamer notifications allow you to set up a customizable message that sends when a Twitch user goes live.",
+            "fields": [
+                {
+                    "name": "Commands",
+                    "value": "`!twitch notif add [#discord_channel] [streamer_name] [message]` - Adds a streamer notification for a streamer to the specified channel\n`!twitch notif remove <#discord_channel> <streamer_name>` - Remove a streamer notification for a streamer to the specified channel\n`!twitch notif list [#discord_channel]` - Lists the streamer notifications for the specified channel\n`!twitch notif formatting` - Shows variables that you can insert into streamer notification messages\n`!twitch notif preview <#discord_channel> <streamer_name>` - Sends a preview message for a notification"
+                }
+            ]
+        },
+        "limit_reached": "<:twitch:404633403603025921> Hey there! Unfortunately you've reached the maximum amount of notifications that you can add to this server. To add more, you need to donate at <https://streamcord.io/twitch/pro>.",
+        "dashboard_notice": "<:twitch:404633403603025921> We recommend using the dashboard for adding notifications. With the dashboard, you can customize your notifications with auto delete, embed color, and more. <https://dash.streamcord.io>",
+        "prompt1": "Which channel do you want to receive the notification in? Mention or type the name of one below. *(respond in 60 seconds)*",
+        "prompt2": "Type the name of the Twitch channel that you want to set up the notification for. *(respond in 60 seconds)*",
+        "prompt3": "Enter a custom message that you want to be shown when the user goes live, or type `default` for the default message. *(respond in 180 seconds)*",
+        "text_channel_not_found": "<:tickNo:342738745092734976> Couldn't find that text channel. Exiting command...",
+        "twitch_user_not_found": "<:tickNo:342738745092734976> That Twitch user could not be found. Exiting command...",
+        "twitch_user_not_found_alt": "<:tickNo:342738745092734976> That Twitch user doesn't exist. Make sure that you're not putting anything extra around the name (such as `<>`), and that you're not @mentioning a Discord user.",
+        "response_timeout": "*Response timed out.*",
+        "invalid_data": "<:tickNo:342738745092734976> Invalid data was sent from Twitch:",
+        "malformed_user": "<:tickNo:342738745092734976> That doesn't look like a valid Twitch user. You can only include underscores, letters, and numbers.",
+        "default_msg": "<https://twitch.tv/{channel}> is now live on Twitch!",
+        "del_fail": "<:tickNo:342738745092734976> No notification has been set up for this user.",
+        "del_success": "<:tickYes:342738345673228290> You won't get any notifications in {channel} when {user} goes live.",
+        "add_success": "<:tickYes:342738345673228290> Added a notification for {user} in {channel}",
+        "list_title": "Streamer notifications for **#{channel}**",
+        "no_notifs": "No streamer notifications are set up for this channel.",
+        "bulk_delete_confirm": "**You are about to delete {count} notifications in {channel}.** Are you sure that you want to do this? Reply with `yes` if you want to continue.",
+        "bulk_delete_success": "<:tickYes:342738345673228290> Successfully deleted {count} notifications from {channel}.",
+        "command_cancelled": "Command cancelled.",
+        "view_on_dashboard": "View more details on the dashboard",
+        "count": "Notification count: {num}",
+        "notif_variables": {
+            "title": "Notification message variables",
+            "description": "Use one of the variables below to insert data into a stream notification message.",
+            "fields": [
+                {
+                    "name": "Available formatting",
+                    "value": "*`$title$`* - The stream's title\n*`$viewers$`* - The number of people currently watching the stream\n*`$game$`* - The game that the streamer is currently playing\n*`$url$`* - The channel's URL\n*`$name$`* - The channel's name\n*`$everyone$`* - Inserts an @everyone mention\n*`$here$`* - Inserts an @here mention"
+                }
+            ]
+        }
+    },
+    "permissions": {
+        "user_need_perm": "<:tickNo:342738745092734976> You need the **{permission}** permission to do this.",
+        "bot_need_perm": "<:tickNo:342738745092734976> I need the **{permission}** permission to do this.",
+        "no_pm": "<:tickNo:342738745092734976> You can only use this command in a server.",
+        "manage_server": "Manage Server",
+        "manage_roles": "Manage Roles"
+    },
+    "streams": {
+        "command_usage": {
+            "title": "Stream Commands - Help",
+            "fields": [
+                {
+                    "name": "Commands",
+                    "value": "`!twitch stream user <user>` - Gets info on a user's stream\n`!twitch stream watch <user>` - Watch a Twitch stream from Discord\n`!twitch stream game <name>` - Watch someone stream the specified game\n`!twitch stream top` - Fetches info on a top stream"
+                }
+            ]
+        },
+        "game_desc": "Check out {user} playing {game} for {view_count} viewers:\nhttps://twitch.tv/{user}",
+        "game_not_found": "<:tickNo:342738745092734976> That game could not be found.",
+        "game_no_streams": "<:tickNo:342738745092734976> Nobody is streaming that game.",
+        "live": "Live on Twitch",
+        "stream_not_found": "<:tickNo:342738745092734976> That user doesn't exist or is not online. Make sure you're only entering the user's name and not anything extra, like `()` or `<>`.",
+        "stream_desc": "Playing {game} for {view_count} viewers \n**[Watch on Twitch](https://twitch.tv/{channel})** or type `twitch stream watch {channel}`\n\nStream Preview:"
+    },
+    "users": {
+        "connections": "Connections for {user}",
+        "connected": "Connected to {account}",
+        "followers": "Followers",
+        "following": "Following",
+        "live": "Currently Live",
+        "playing": "Playing {game} for {view_count} viewers",
+        "not_connected": "Not Connected",
+        "not_live": "Currently Offline",
+        "no_login_dash": "This user hasn't visited the [Streamcord dashboard](http://dash.streamcord.io).",
+        "streamer_id": "Streamer ID:",
+        "tags": "Stream Tags",
+        "views": "Views",
+        "view_profile": "View Twitch Profile",
+        "unknown": "Unknown",
+        "watch_on_twitch": "Watch on Twitch"
+    },
+    "general.enabled": "Enabled",
+    "general.disabled": "Disabled",
+    "general.command_moved": "This command has been moved. Please use the `{cmd}` command instead.",
+    "lr.no_live_role_set": "No live role is set up for this server.",
+    "lr.commands.view.title": "Live role configuration",
+    "lr.commands.view.description": "You can also manage live role from the [Streamcord Dashboard]({url})",
+    "lr.commands.view.footer": "You can set a live role using `!twitch lr set role`",
+    "lr.live_role": "Live role",
+    "lr.filter_role": "Filter role",
+    "lr.bot_role": "Streamcord role",
+    "lr.no_role_set": "No role",
+    "lr.notifications": "Live role notifications",
+    "lr.no_channel": "No channel configured.",
+    "lr.commands.check.title": "Live role check",
+    "lr.commands.check.checks": "Members with live role: {a}\nMembers streaming: {b}\nMembers streaming w/ live role: {c}\nMembers streaming w/o live role: {d}\nMembers not streaming w/ live role: {e}",
+    "lr.errors.invalid_role_hierarchy": "The Streamcord role must be higher than the live role.",
+    "lr.errors.role_managed": "The live role can't be managed by an integration.",
+    "lr.errors.default_role": "The live role can't be the server's default role. Use the `lr del` command to clear the configuration.",
+    "lr.commands.set_role.success": "Server members who stream on Twitch will receive the **{role}** role.",
+    "lr.commands.set_role.updated_roles": "Finished updating member roles.",
+    "lr.errors.no_live_role_set": "You must first set a live role using the `lr set role @role-name` command.",
+    "lr.commands.set_filter.success": "Server members who stream on Twitch and have the **{filter}** role will receive the **{role}** role.",
+    "lr.commands.del.success": "Removed this server's live role configuration.",
+    "lr.commands.del_filter.success": "Removed this server's filter role configuration."
+}

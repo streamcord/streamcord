@@ -28,7 +28,7 @@ def owner_only(ctx):
 class Dev(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        if not functions.is_canary_bot():
+        if not (functions.is_canary_bot() or getenv('ENABLE_PRO_FEATURES') == '1'):
             bot.loop.create_task(self.background_dd_report())
         bot.loop.create_task(self.daily_bot_stats())
 

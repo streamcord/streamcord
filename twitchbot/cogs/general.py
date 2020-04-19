@@ -1,32 +1,43 @@
-import time
-import sys
-from os import getenv
-from textwrap import dedent
-import logging
-import traceback
-
 import discord
-from discord.ext import commands
 import psutil
-import requests
+import sys
+import time
+
+from discord.ext import commands
+from os import getenv
 from rethinkdb import RethinkDB
+from textwrap import dedent
 from ..utils import lang, paginator, functions
+from .. import TwitchBot
+
 r = RethinkDB()
+r.set_loop_type('asyncio')
 
 
 class General(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: TwitchBot = bot
 
     @commands.command(aliases=["commands"])
     async def cmds(self, ctx):
         msgs = await lang.get_lang(ctx)
-        e = lang.EmbedBuilder(msgs['commands_list'])
+        e = lang.build_embed(msgs['commands_list'])
         if getenv('ENABLE_PRO_FEATURES') == '1':
-            e.title = "<:twitch:404633403603025921> Streamcord Pro Commands"
+            e.title = lang.emoji.twitch_icon + "Streamcord Pro Commands"
+            e.set_field_at(
+                4,
+                name="Live Role",
+                value="`?twitch lr view` - View the current live role config\n"
+                      "`?twitch lr check` - Debug the current live role config\n"
+                      "`?twitch lr set role` - Set the live role and force update member roles\n"
+                      "`?twitch lr set filter` - Set the filter role\n"
+                      "`?twitch lr delete` - Delete the live role config\n"
+                      "`?twitch lr delete filter` - Delete the filter role config",
+                inline=False)
             e.add_field(
                 name="Moderation",
-                value="`?twitch ban <user> [reason]`\n`?twitch kick <user> [reason]`\n`?twitch purge <n>` - Deletes the last n messages",
+                value="`?twitch ban <user> [reason]`\n`?twitch kick <user> [reason]`\n`?twitch purge <n>` - Deletes "
+                      "the last n messages",
                 inline=False)
         await ctx.send(embed=e)
 
@@ -36,7 +47,7 @@ class General(commands.Cog):
         async with ctx.channel.typing():
             msgs = await lang.get_lang(ctx)
             e = discord.Embed(
-                color=discord.Color(0x6441A4),
+                color=discord.Color(0x9146ff),
                 title=msgs['general']['stats_command']['title']
             )
             uptime = functions.get_bot_uptime(self.bot.uptime)
@@ -46,7 +57,7 @@ class General(commands.Cog):
                 value=uptime,
                 inline=False
             )
-            lr_cnt = await r.table('live_role').count().run(self.bot.rethink)
+            lr_cnt = 0
             notif_cnt = await r.table('notifications').count().run(self.bot.rethink)
             e.add_field(
                 name=msgs['general']['stats_command']['usage'],
@@ -118,19 +129,15 @@ class General(commands.Cog):
         await ctx.send(msgs['general']['invite_message_2'])
 
     @commands.cooldown(rate=1, per=3)
-    @commands.command(pass_context=True)
+    @commands.command()
     async def status(self, ctx):
         async with ctx.channel.typing():
             msgs = await lang.get_lang(ctx)
             e = discord.Embed(
-                color=discord.Color(0x6441A4),
+                color=discord.Color(0x9146ff),
                 title=msgs['general']['status']['title']
             )
-            re = requests.get(
-                "https://cjn0pxg8j9zv.statuspage.io/api/v2/summary.json"
-            )
-            re.raise_for_status()
-            re = re.json()["components"]
+            re = await self.bot.chttp.get_twitch_api_status()
             for c in re:
                 emote = lang.emoji.cmd_success
                 if c["status"] in ["partial_outage", "major_outage"]:
@@ -145,7 +152,7 @@ class General(commands.Cog):
         await ctx.send(embed=e)
 
     @commands.command(aliases=["language"])
-    async def lang(self, ctx, language=None):
+    async def lang(self, ctx: commands.Context, language: str = None):
         msgs = await lang.get_lang(ctx)
         if language is None:
             return await ctx.send(
@@ -157,65 +164,15 @@ class General(commands.Cog):
             return await e.page(ctx)
         if language not in self.bot.languages:
             return await ctx.send(msgs['general']['lang_unavailable'])
-        await r.table('user_options') \
-            .insert(
-                {"id": str(ctx.author.id), "lang": language},
-                conflict="update"
-            ) \
-            .run(self.bot.rethink, durability="soft", noreply=True)
+        await self.bot.mongo.dashboard.userPreferences.find_one_and_update(
+            {'_id': str(ctx.author.id)},
+            {'$set': {'lang': language}},
+            projection={'_id': 1},
+            upsert=True)
         msgs = await lang.get_lang(ctx, force=language)
         return await ctx.send(
             msgs['general']['lang_set'].format(lang=msgs['_lang_name']))
 
 
-def setup(bot):
+def setup(bot: TwitchBot):
     bot.add_cog(General(bot))
-
-    @bot.event
-    async def on_message(ctx):
-        try:
-            if ctx.author.bot:
-                return
-            if ctx.content.lower().startswith(tuple(bot.command_prefix)):
-                if str(ctx.author.id) in getenv('BANNED_USERS').split(','):
-                    return await ctx.channel.send(
-                        "You have been banned from using Streamcord.")
-                if not bot.is_ready():
-                    msgs = await lang.get_lang(
-                        lang.FakeCtxObject(bot, ctx.author))
-                    return await ctx.channel.send(msgs['errors']['not_started'])
-                if ctx.guild:
-                    logging.info('%i in %i: %s', ctx.author.id, ctx.guild.id, ctx.clean_content)
-                else:
-                    logging.info('%i in DM: %s', ctx.author.id, ctx.clean_content)
-                help_cmd = tuple(map(lambda t: t + "help", bot.command_prefix))
-                if ctx.content.lower() in help_cmd:
-                    await ctx.channel.trigger_typing()
-                    # send help command
-                    msgs = await lang.get_lang(
-                        lang.FakeCtxObject(bot, ctx.author))
-                    await functions.dogstatsd.increment('bot.commands_run', tags=['command:help'])
-                    e = lang.EmbedBuilder(msgs['help_command'])
-                    if getenv('ENABLE_PRO_FEATURES') == '1':
-                        e.title = "<:twitch:404633403603025921> **Streamcord Pro Help**"
-                        e.set_field_at(
-                            0,
-                            name="Commands",
-                            value="Streamcord responds to commands starting with `?twitch`. Type `?twitch commands` to view all runnable commands.")
-                        e.remove_field(4)
-                        e.remove_field(5)
-                        e.insert_field_at(
-                            0,
-                            name="Pro Bot",
-                            value="This server is running a special instance of Streamcord only available to Patrons and partners. [Learn More](https://streamcord.io/twitch/pro)",
-                            inline=False)
-                    return await ctx.channel.send(embed=e)
-                splitter = ctx.content.split(' && ')
-                for s in splitter:
-                    ctx.content = s
-                    await bot.process_commands(ctx)
-            elif ctx.guild is None:
-                return
-        except Exception:
-            msgs = await lang.get_lang(lang.FakeCtxObject(bot, ctx.author))
-            await ctx.channel.send(f"{msgs['games']['generic_error']}\n{traceback.format_exc()}")

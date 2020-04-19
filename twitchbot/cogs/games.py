@@ -13,7 +13,7 @@ class Games(commands.Cog):
     async def game(self, ctx, *, name):
         await ctx.trigger_typing()
         msgs = await lang.get_lang(ctx)
-        e = discord.Embed(color=discord.Color(0x6441A4))
+        e = discord.Embed(color=discord.Color(0x9146ff))
         r = await self.bot.chttp_twitch.get('/games', params={'name': name})
         r.raise_for_status()
         try:
@@ -68,7 +68,7 @@ class Games(commands.Cog):
     async def top(self, ctx):
         await ctx.trigger_typing()
         msgs = await lang.get_lang(ctx)
-        e = discord.Embed(color=discord.Color(0x6441A4), title=msgs['games']['top_games'])
+        e = discord.Embed(color=discord.Color(0x9146ff), title=msgs['games']['top_games'])
         r = await self.bot.chttp_twitch.get('/games/top', params={'limit': 10}, is_v5=True)
         r.raise_for_status()
         r = (await r.json())['top']

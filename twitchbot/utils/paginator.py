@@ -1,7 +1,6 @@
 import asyncio
-import math
-
 import discord
+import math
 
 
 class EmbedPaginator:

@@ -59,7 +59,6 @@ class BaseCHTTP:
             message, {"@everyone": "@\u200beveryone", "@here": "@\u200bhere"})
         return await self.webhook.send(message)
 
-
     async def internal_api_get(self, url):
         async with self.aiohttp.get(url, headers={'X-Auth-Key': getenv('DASHBOARD_KEY')}) as re:
             self.logger.debug('GET %s%s %i', re.url.host, re.url.path, re.status)
@@ -84,6 +83,15 @@ class BaseCHTTP:
         ) as re:
             self.logger.debug('GET %s%s %i', re.url.host, re.url.path, re.status)
             return await CHTTPResponse.make(re)
+
+    async def get_twitch_api_status(self) -> list:
+        """
+        Get a list of statuses for Twitch API components. See https://devstatus.twitch.tv/
+        """
+        async with self.aiohttp.get('https://cjn0pxg8j9zv.statuspage.io/api/v2/summary.json') as req:
+            req.raise_for_status()
+            res = await req.json()
+            return res['components']
 
 
 class TwitchCHTTP:
@@ -110,7 +118,7 @@ class TwitchCHTTP:
         elif self.bot.cluster_index <= 11:
             prefix = 'TWITCH_S3'
             bucket = 'stream_alt_2'
-        else: # elif self.bot.cluster_index <= 15:
+        else:  # elif self.bot.cluster_index <= 15:
             prefix = 'TWITCH_S4'
             bucket = 'stream_alt_3'
         self.client_config = (

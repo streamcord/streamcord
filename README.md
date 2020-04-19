@@ -28,12 +28,15 @@ Streamcord does not include an Open-Source license. This means that this softwar
 
 We are not offering any support for people who want to clone or redistribute Streamcord for their own use. You will likely not be able to run your own instance of Streamcord without extensive modifications of the source code.
 
+You must obtain written permission from the developer if you would like to self-host Streamcord.
+
 ## Requirements
 
  - Python 3.8
  - All modules in the `requirements.txt` file.
  - discord.py rewrite
  - A RethinkDB server
+ - A MongoDB server
  - A Lavalink node
  - Datadog (optional)
  - Proper tokens and keys required by the environment variables.

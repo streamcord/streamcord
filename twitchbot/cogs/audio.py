@@ -92,7 +92,7 @@ class Audio(commands.Cog):
             return await ctx.send(msgs['audio']['not_streaming'])
 
         e = discord.Embed(
-            color=0x6441A4,
+            color=0x9146ff,
             title=msgs['audio']['now_playing']['title']
             .format(channel=ctx.author.voice.channel),
             description=f"{voice_state.title}\n{voice_state.uri}"

@@ -23,7 +23,7 @@ class Notifs(commands.Cog):
     async def notif(self, ctx):
         if ctx.invoked_subcommand is None:
             msgs = await lang.get_lang(ctx)
-            await ctx.send(embed=lang.EmbedBuilder(msgs['notifs']['command_usage']))
+            await ctx.send(embed=lang.build_embed(msgs['notifs']['command_usage']))
 
     @notif.command(no_pm=True)
     async def add(
@@ -45,7 +45,7 @@ class Notifs(commands.Cog):
         if getenv('ENABLE_PRO_FEATURES') == '0':
             # FIXME: Use aiohttp
             prem_check = requests.get(
-                f"https://api.twitchbot.io/premium/{ctx.author.id}",
+                f"https://api.streamcord.io/premium/{ctx.author.id}",
                 headers={"X-Auth-Key": getenv('DASHBOARD_KEY')})
             is_client_err = 499 >= prem_check.status_code > 299
             if prem_check.json().get('premium') is not True or is_client_err:
@@ -187,7 +187,7 @@ class Notifs(commands.Cog):
             return await ctx.send(msgs['notifs']['no_notifs'])
 
         e = discord.Embed(
-            color=0x6441A4,
+            color=0x9146ff,
             title=msgs['notifs']['list_title'].format(channel=channel.name),
             description=msgs['notifs']['count'].format(num=len(notifs)) + f'\n[{msgs["notifs"]["view_on_dashboard"]}](https://dash.streamcord.io/servers/{ctx.guild.id})'
         )
@@ -304,7 +304,7 @@ class Notifs(commands.Cog):
 
         link = f"https://twitch.tv/{rjson['login']}"
         e = discord.Embed(
-            color=discord.Color(0x6441A4),
+            color=discord.Color(0x9146ff),
             title="**Example stream title**",
             description=f"Playing (game) for (viewers) viewers\n[Watch Stream]({link})",
             timestamp=datetime.datetime.utcnow())
@@ -333,7 +333,7 @@ class Notifs(commands.Cog):
     @notif.command()
     async def formatting(self, ctx):
         msgs = await lang.get_lang(ctx)
-        e = lang.EmbedBuilder(msgs['notifs']['notif_variables'])
+        e = lang.build_embed(msgs['notifs']['notif_variables'])
         e.set_footer(
             icon_url=ctx.author.avatar_url or ctx.author.default_avatar_url,
             text=str(ctx.author))

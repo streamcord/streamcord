@@ -1,328 +1,381 @@
 import asyncio
+import datetime
 import discord
-import json
 import logging
-import secrets
 import time
-import traceback
-import typing
 
 from discord.ext import commands
-from os import getenv
-from rethinkdb import RethinkDB
-from ..utils import lang, functions
-
-r = RethinkDB()
-r.set_loop_type('asyncio')
+from secrets import token_hex
+from typing import Optional
+from ..utils import functions
+from .. import TwitchBot
 
 
 class LiveRole(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
-        self.log = logging.getLogger("bot.live_role")
-        self.activity_predicate = lambda a: isinstance(a, discord.Streaming)
-        self.streaming_predicate = lambda m: not (m.bot or discord.utils.find(self.activity_predicate, m.activities) is None)
+        self.bot: TwitchBot = bot
+        self.live_role = {}
+        self.bot._live_role_nonce = None
+        self._last_fetch = None
 
-        bot.loop.create_task(self.cache_update_loop())
+        self.log = logging.getLogger('bot.live_role')
+        self.bot.loop.create_task(self._pull_cache_loop())
+
+    @staticmethod
+    def _activity_base(activity: discord.Activity) -> bool:
+        return isinstance(activity, discord.Streaming)
+
+    @staticmethod
+    def _streaming_base(member: discord.Member) -> bool:
+        """
+        Returns True if the member is eligible to receive the live role
+        """
+        if member.bot:
+            return False
+        return any([isinstance(a, discord.Streaming) for a in member.activities])
 
     async def _pull_cache(self):
-        ctime = time.time()
-        cur = await r.table('live_role').run(self.bot.rethink)
-        self.bot.live_role = [g async for g in cur]
-        self.log.info('Updated live role cache in %ims', round((time.time() - ctime) * 1000))
+        c_time = time.time()
+        self.live_role = {guild.pop('_id'): guild async for guild in self.bot.db.liveRole.find({})}
+        self.log.info('Updated live role cache in %sms (%s guilds)',
+                      round((time.time() - c_time) * 1000), len(self.live_role))
+        self._last_fetch = datetime.datetime.utcnow()
 
-    async def cache_update_loop(self):
+    async def _pull_cache_loop(self):
+        # when reloading a cog, old tasks are never cleaned up. so, we need to make sure that only the most recent
+        # cache update loop is running
+        _nonce = token_hex(6)
+        self.bot._live_role_nonce = _nonce
         await self.bot.wait_until_ready()
-        _nonce = secrets.token_urlsafe(5)
-        self._cache_nonce = _nonce
         while not self.bot.is_closed():
-            if self._cache_nonce != _nonce:
-                return self.log.info('Preventing duplicate cache update loop')
-            await self._pull_cache()
+            if self.bot._live_role_nonce != _nonce:
+                self.log.info('Replacing live role update task %s with %s', _nonce, self.bot._live_role_nonce)
+                break
+            try:
+                await self._pull_cache()
+            except Exception:
+                self.log.exception('Failed to retrieve live role!! Retrying in 120s')
             await asyncio.sleep(60)
+        self.log.info('Cleaned up live role task %s', _nonce)
+
+    async def _handle_stream_end(self, member: discord.Member, live_role: discord.Role):
+        if not discord.utils.get(member.roles, id=live_role.id):
+            # user doesn't have the live role, so don't try to remove it
+            return
+
+        try:
+            await member.remove_roles(live_role, reason='[Live role] Stream ended on Twitch')
+        except discord.Forbidden as ex:
+            # TODO: Error logging
+            pass
+        except discord.NotFound:
+            pass
+        except Exception:
+            self.log.exception('Failed to remove live role from %s in %s', member.id, member.guild.id)
+            return
+        finally:
+            self.log.info('Removed role %s from %s in %s', live_role.id, member.id, member.guild.id)
+            await functions.dogstatsd.increment('bot.live_role.role_remove_event')
+
+    async def _handle_stream_start(self, member: discord.Member, activity: discord.Streaming, live_role: discord.Role,
+                                   filter_role: Optional[discord.Role], config: dict):
+        if filter_role:
+            has_filter = discord.utils.get(member.roles, id=filter_role.id) is not None
+            if not has_filter:
+                return
+
+        try:
+            await member.add_roles(live_role, reason='[Live role] Started stream on Twitch')
+        except discord.Forbidden as ex:
+            # TODO: Error logging
+            pass
+        except discord.NotFound:
+            pass
+        except Exception:
+            self.log.exception('Failed to add live role to %s in %s', member.id, member.guild.id)
+            return
+        finally:
+            self.log.info('Added role %s to %s in %s', live_role.id, member.id, member.guild.id)
+            await functions.dogstatsd.increment('bot.live_role.role_add_event')
+
+        if config.get('notifs'):
+            await self._make_notification(member, activity, config)
+
+    async def _make_notification(self, member: discord.Member, activity: discord.Streaming, config: dict):
+        if not config.get('notifs'):
+            return
+        notifs: dict = config['notifs']
+        if not notifs.get('enabled'):
+            return
+        if not notifs.get('channel'):
+            return
+        if not notifs.get('message'):
+            notifs['message'] = '{user.name} is now live on Twitch! Watch them at {user.twitch_url}'
+        channel: discord.TextChannel = member.guild.get_channel(int(notifs['channel']))
+        if channel is None:
+            return
+
+        fmt_vars = {
+            '{user.name}': member.name.replace('_', '\\_'),
+            '{user.twitch_name}': (getattr(activity, 'twitch_name') or 'unknown').replace('_', '\\_'),
+            '{user.twitch_url}': (getattr(activity, 'url') or 'unknown'),
+            '{user.stream_title}': (getattr(activity, 'details') or 'unknown').replace('_', '\\_')
+        }
+        msg_content = functions.replace_multiple(notifs['message'], fmt_vars)
+
+        try:
+            await channel.send(msg_content)
+        except discord.Forbidden as ex:
+            # TODO: Error logging
+            self.log.info('Forbidden')
+            pass
+        except Exception:
+            self.log.exception('Failed to add live role to %s in %s', member.id, member.guild.id)
+            return
+        finally:
+            await functions.dogstatsd.increment('bot.live_role.notification_event')
 
     @commands.Cog.listener()
-    async def on_member_update(self, before, after):
-        try:
-            if before.guild is None or before.bot:
-                return
-            before_activity = discord.utils.find(self.activity_predicate, before.activities)
-            after_activity = discord.utils.find(self.activity_predicate, after.activities)
-            was_streaming = before_activity is not None
-            is_streaming = after_activity is not None
-            if was_streaming == is_streaming:
-                return
-
-            await self.bot.wait_until_ready()
-            is_event_backlogged = False
-            while not hasattr(self.bot, 'live_role'):
-                if 'live-role-backlog' in getenv('SC_DISABLED_FEATURES'):
-                    return
-                if not is_event_backlogged:
-                    self.log.info('MEMBER_UPDATE event for %i is being backlogged', before.id)
-                    is_event_backlogged = True
-                await asyncio.sleep(0.1)
-            if is_event_backlogged:
-                self.log.info('Processing backlogged MEMBER_UPDATE event for %i', before.id)
-
-            liverole = discord.utils.find(lambda r: r['id'] == str(after.guild.id), self.bot.live_role)
-            if liverole is None or not liverole.get('role'):
-                return
-            self.log.debug(
-                'MEMBER_UPDATE for %i in %i: streaming state changed from %s to %s',
-                after.guild.id, after.id, was_streaming, is_streaming)
-
-            role = after.guild.get_role(int(liverole['role']))
-            if not role:
-                return
-            frole = liverole.get('filter')
-            frole = after.guild.get_role(int(frole)) if frole else None
-            if (not frole) or (role.id == getattr(frole, 'id', 0)):
-                frole = discord.Object(id=0)
-
-            if (not was_streaming) and is_streaming:
-                # member started streaming
-                if (frole.id != 0) and (not discord.utils.get(after.roles, id=frole.id)):
-                    return  # member doesn't have the filter role
-
-                await after.add_roles(role, reason='Started stream on Twitch')
-                self.log.info(
-                    'Added role %i to %i in %i',
-                    role.id, after.id, after.guild.id)
-                await functions.dogstatsd.increment('bot.live_role.role_add_event')
-
-                if liverole.get('notifications') is True:
-                    channel = after.guild.get_channel(int(liverole.get('notif_channel', 0)))
-                    if channel is None:
-                        return
-
-                    game = discord.utils.find(
-                        lambda a: a.type == discord.ActivityType.playing and hasattr(a, 'name'),
-                        after.activities)
-                    if game is not None:
-                        gname = game.name.replace('_', '\\_')
-                    else:
-                        gname = 'nothing'
-                    twitch_name = getattr(after_activity, 'twitch_name', 'unknown').replace('_', '\\_')
-                    twitch_url = getattr(after_activity, 'url', 'unknown')
-                    stream_title = getattr(after_activity, 'details', 'unknown').replace('_', '\\_')
-
-                    fmt_vars = {
-                        '{user.name}': after.name.replace('_', '\\_'),
-                        '{user.twitch_name}': twitch_name,
-                        '{user.twitch_url}': twitch_url,
-                        '{user.stream_title}': stream_title,
-                        '{user.game}': gname
-                    }
-                    msg = functions.replace_multiple(liverole['notif_message'], fmt_vars)
-                    await channel.send(msg)
-                    await functions.dogstatsd.increment('bot.live_role.notification_event')
-                    return
-            elif was_streaming and (not is_streaming):
-                # member is no longer streaming
-                if discord.utils.get(after.roles, id=role.id) is None:
-                    # member doesn't have the live role, don't try to remove it
-                    return
-                await after.remove_roles(role, reason='Finished stream on Twitch')
-                self.log.info(
-                    'Removed role %i from %i in %i',
-                    role.id, after.id, after.guild.id)
-                await functions.dogstatsd.increment('bot.live_role.role_remove_event')
-        except discord.Forbidden as e:
-            inf = {
-                'text': e.text,
-                'status': e.status,
-                'code': e.code
-            }
-            self.log.info('Missing permissions: %i in %i (%s)', after.id, after.guild.id, str(inf))
-            await r.table('live_role') \
-                .get(str(after.guild.id)) \
-                .update({'error': inf}) \
-                .run(self.bot.rethink, noreply=True, durability='soft')
-        except discord.NotFound as e:
-            inf = {
-                'text': e.text,
-                'status': e.status,
-                'code': e.code
-            }
-            self.log.info('Role not found in %i (%s)', after.guild.id, str(inf))
-            await r.table('live_role') \
-                .get(str(after.guild.id)) \
-                .update({'error': inf}) \
-                .run(self.bot.rethink, noreply=True, durability='soft')
-        except Exception:
-            self.log.exception('Failed to update live role for %i in %i', after.id, after.guild.id)
-            await functions.dogstatsd.create_event(
-                title="Live role error",
-                text=traceback.format_exc(),
-                alert_type="error")
-
-    @commands.group(no_pm=True, aliases=['lr', 'lc', 'live_check'])
-    async def live_role(self, ctx):
-        if ctx.invoked_subcommand is None:
-            msgs = await lang.get_lang(ctx)
-            await ctx.send(embed=lang.EmbedBuilder(msgs['live_role']['command_usage']))
-
-    @live_role.command()
-    async def set(self, ctx, *, role: typing.Union[discord.Role, str] = None):
-        msgs = await lang.get_lang(ctx)
-        if not ctx.author.permissions_in(ctx.channel).manage_guild:
-            return await ctx.send(
-                msgs['permissions']['user_need_perm'].format(permission=msgs['permissions']['manage_server']))
-        if not ctx.guild.me.permissions_in(ctx.channel).manage_roles:
-            return await ctx.send(
-                msgs['permissions']['bot_need_perm'].format(permission=msgs['permissions']['manage_roles']))
-
-        if role is None:
-            return await ctx.send(msgs['live_role']['no_role_mentioned'])
-        if isinstance(role, str):
-            role = discord.utils.find(
-                lambda m: role.lower() in m.name.lower(),
-                ctx.guild.roles
-            )
-            if role is None:
-                return await ctx.send(msgs['live_role']['role_not_found'])
-
-        await r.table('live_role') \
-            .insert({
-                "id": str(ctx.guild.id),
-                "role": str(role.id)
-            }, conflict="update") \
-            .run(self.bot.rethink, durability="soft", noreply=True)
-
-        await ctx.send(msgs['live_role']['add_success'].format(role=role.name))
-        cursor = await r.table('live_role').get(str(ctx.guild.id)).run(self.bot.rethink)
-        if cursor is None:
-            # database hasn't updated yet
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        if before.guild is None or before.bot:
             return
-        g = ctx.guild
+        curr_activity: Optional[discord.Streaming] = discord.utils.find(LiveRole._activity_base, after.activities)
+        was_streaming = any([isinstance(a, discord.Streaming) for a in before.activities])
+        is_streaming = any([isinstance(a, discord.Streaming) for a in after.activities])
+
+        if was_streaming == is_streaming:
+            return
+        elif 'twitch' not in str(getattr(curr_activity, 'url', '')):
+            # known issue 17:
+            # prevent Streamcord from notifying about non-Twitch streamers
+            return
+
+        self.log.debug('%s\'s stream state in %s changed from %s to %s',
+                       after.id, after.guild.id, was_streaming, is_streaming)
+
+        if not self.live_role:
+            self.log.debug('Dropping stream state change event for %s', after.id)
+            return
+
+        lr_config = self.live_role.get(str(after.guild.id))
+        if lr_config is None or not lr_config.get('role'):
+            return
+
+        live_role: discord.Role = after.guild.get_role(int(lr_config['role']))
+        if not live_role:
+            return
+        filter_role: Optional[discord.Role] = None
+        if filter_id := lr_config.get('filter'):
+            if filter_id != lr_config['role']:
+                filter_role = after.guild.get_role(int(filter_id))
+
         try:
-            lc = int(cursor['role'])
-            role = discord.utils.find(lambda r: r.id == int(lc), g.roles)
-            streamers = list(filter(self.streaming_predicate, g.members))
-            msg = await ctx.send(f'{lang.emoji.loading}Adding the live role to {len(streamers)} people... This may take a while.')
-            for m in streamers:
-                if not m.bot:
-                    if 'filter' in cursor.keys():
-                        frole = discord.utils.get(g.roles, id=int(cursor['filter']))
-                        if frole.id not in map(lambda r: r.id, m.roles):
-                            continue
-                    await m.add_roles(role, reason="User went live on Twitch")
-                    self.log.info('Added live role to %i in %i', m.id, m.guild.id)
-            await msg.edit(content=f'{lang.emoji.cmd_success}Finished updating roles')
-        except discord.Forbidden:
-            await ctx.send(msgs['live_role']['missing_perms_ext'])
+            if is_streaming:
+                await self._handle_stream_start(after, curr_activity, live_role, filter_role, lr_config)
+            elif was_streaming:
+                await self._handle_stream_end(after, live_role)
         except Exception:
-            logging.exception('w')
-            raise
+            self.log.exception('Live role event error')
 
-    @live_role.command(name="filter", no_pm=True)
-    async def _filter(self, ctx, *, role: typing.Union[discord.Role, str] = None):
-        """Restricts Live Role to users with a specific role"""
-        msgs = await lang.get_lang(ctx)
-        if not ctx.author.permissions_in(ctx.channel).manage_guild:
-            return await ctx.send(
-                msgs['permissions']['user_need_perm'].format(permission=msgs['permissions']['manage_server']))
-        if not ctx.guild.me.permissions_in(ctx.channel).manage_roles:
-            return await ctx.send(
-                msgs['permissions']['bot_need_perm'].format(permission=msgs['permissions']['manage_roles']))
-        if role is None:
-            return await ctx.send(msgs['live_role']['no_role_mentioned'])
+    # ----------------- #
+    # Commands
+    # ----------------- #
 
-        if isinstance(role, str):
-            role = discord.utils.find(
-                lambda m: role.lower() in m.name.lower(),
-                ctx.guild.roles
-            )
-            if role is None:
-                return await ctx.send(msgs['live_role']['role_not_found'])
-        cursor = await r.table('live_role') \
-            .get(str(ctx.guild.id)) \
-            .run(self.bot.rethink)
-        cursor = dict(cursor or {})
-        if cursor == {}:
-            return await ctx.send(msgs['live_role']['not_set_up'])
-        if cursor.get('role') == str(role.id):
-            return await ctx.send(msgs['live_role']['conflicting_roles'])
-        await r.table('live_role') \
-            .insert(
-                {"id": str(ctx.guild.id), "filter": str(role.id)},
-                conflict="update"
-            ) \
-            .run(self.bot.rethink, durability="soft", noreply=True)
-        await ctx.send(msgs['live_role']['filter_success'])
-        g = ctx.guild
-        lc = int(cursor['role'])
-        live_role = discord.utils.find(
-            lambda r: str(r.id) == str(lc),
-            g.roles
-        )
-        filtered_members = filter(
-            lambda m: role.id in map(lambda r: r.id, m.roles),
-            g.members
-        )
-        for m in filtered_members:
-            if role.id is not None and role.id not in map(lambda r: r.id, m.roles):
-                await m.remove_roles(live_role, reason="User needs filter role")
-                self.log.info('Removed live role from %i in %i due to new filter rule', m.id, m.guild.id)
-
-    @live_role.command(aliases=['del', 'remove'])
-    async def delete(self, ctx):
-        msgs = await lang.get_lang(ctx)
-        if not ctx.author.permissions_in(ctx.channel).manage_guild:
-            return await ctx.send(
-                msgs['permissions']['user_need_perm'].format(permission=msgs['permissions']['manage_server']))
-        try:
-            await r.table('live_role') \
-                .get(str(ctx.guild.id)) \
-                .delete() \
-                .run(self.bot.rethink, durability="soft", noreply=True)
-        except KeyError:
-            return await ctx.send(msgs['live_role']['not_set_up'])
-        else:
-            return await ctx.send(msgs['live_role']['del_success'])
-
-    @live_role.command(aliases=['list'])
-    async def view(self, ctx):
-        msgs = await lang.get_lang(ctx)
-        cursor = await r.table('live_role')\
-            .get(str(ctx.guild.id))\
-            .run(self.bot.rethink)
-        if cursor is None:
-            return await ctx.send(msgs['live_role']['not_set_up'])
-        role = discord.utils.find(
-            lambda n: n.id == int(cursor.get('role', 0)),
-            ctx.guild.roles)
-        if role is None:
-            return await ctx.send(msgs['live_role']['not_set_up'])
-        await ctx.send(msgs['live_role']['view_response'].format(role=role.name))
+    @commands.group(aliases=['lr'])
+    @commands.has_permissions(manage_guild=True)
+    async def live_role(self, ctx: commands.Context):
+        if ctx.invoked_subcommand is None:
+            await ctx.invoke(self.bot.get_command('live_role view'))
 
     @live_role.command()
-    async def check(self, ctx):
-        msgs = await lang.get_lang(ctx)
-        cursor = await r.table('live_role')\
-            .get(str(ctx.guild.id))\
-            .run(self.bot.rethink)
-        if cursor is None:
-            return await ctx.send(msgs['live_role']['not_set_up'])
-        try:
-            role = ctx.guild.get_role(int(cursor['role']))
-            if cursor.get('filter') is not None:
-                frole = ctx.guild.get_role(int(cursor['filter']))
-            else:
-                frole = None
-        except TypeError:
-            return await ctx.send(msgs['live_role']['not_set_up'])
-        streamers = len(list(filter(self.streaming_predicate, ctx.guild.members)))
-        members_with_lr = len([m for m in ctx.guild.members if role in m.roles])
-        tracked = discord.utils.find(lambda x: x['id'] == str(ctx.guild.id), self.bot.live_role)
+    async def view(self, ctx: commands.Context):
+        config = await self.bot.db.liveRole.find_one({'_id': str(ctx.guild.id)}) or {}
+
+        live_role: discord.Role = ctx.guild.get_role(int(config.get('role') or 0))
+        if live_role is None:
+            return await ctx.send('No live role is set up for this server.')
+        filter_role: discord.Role = ctx.guild.get_role(int(config.get('filter') or 0))
+        lr_notifications = config.get('notifs', {'enabled': False})
+
         e = discord.Embed(
-            color=0x6441A4,
-            title='Live Role Check',
-            description=f'Database:\n```json\n{json.dumps(cursor)}\n```\nLocal:\n```json\n{json.dumps(tracked)}\n```\n{repr(role)}\n{repr(frole)}')
-        e.set_footer(text=f'{members_with_lr} / {streamers} members with live role')
+            color=0x9146ff,
+            title='Live role configuration',
+            description='You can also manage live role from the '
+                        f'[Streamcord Dashboard](https://dash.streamcord.io/servers/{ctx.guild.id})')
+        if live_role:
+            e.add_field(name='Live role', value=live_role.mention)
+        else:
+            e.add_field(name='Live role', value='No role')
+        if filter_role:
+            e.add_field(name='Filter role', value=filter_role.mention)
+        else:
+            e.add_field(name='Filter role', value='No role')
+        if lr_notifications['enabled']:
+            notif_channel: discord.TextChannel = ctx.guild.get_channel(int(lr_notifications.get('channel', 0)))
+            if notif_channel:
+                e.add_field(
+                    name='Live role notifications',
+                    value=f'**Enabled**\nChannel: {notif_channel.mention}',
+                    inline=False)
+            else:
+                e.add_field(name='Live role notifications', value='**Enabled**\nNo channel configured.', inline=False)
+        else:
+            e.add_field(
+                name='Live role notifications',
+                value=f'Disabled',
+                inline=False)
+        e.set_footer(text='You can set a live role using `!twitch lr set role`')
         await ctx.send(embed=e)
 
+    @live_role.command()
+    async def check(self, ctx: commands.Context):
+        config = await self.bot.db.liveRole.find_one({'_id': str(ctx.guild.id)}) or {}
+        if not config.get('role'):
+            return await ctx.send('No live role is set up for this server.')
+        try:
+            del config['_id']
+        except KeyError:
+            pass
 
-def setup(bot: commands.Bot):
+        live_role: discord.Role = ctx.guild.get_role(int(config.get('role') or 0))
+        if not live_role:
+            return await ctx.send('No live role is set up for this server.')
+        filter_role: Optional[discord.Role] = ctx.guild.get_role(int(config.get('filter') or 0))
+        bot_role: discord.Role = discord.utils.get(ctx.guild.me.roles, managed=True)
+        perms: discord.Permissions = ctx.guild.me.permissions_in(ctx.channel)
+
+        lr_count = [m for m in ctx.guild.members if any([live_role == r for r in m.roles])]
+        streaming_count = [m for m in ctx.guild.members if LiveRole._streaming_base(m)]
+        streaming_w_lr_count = [m for m in streaming_count if m in lr_count]
+        streaming_wo_lr_count = [m for m in streaming_count if m not in lr_count]
+        not_streaming_w_lr_count = [m for m in lr_count if m not in streaming_count]
+
+        e = discord.Embed(
+            color=0x9146ff,
+            timestamp=self._last_fetch,
+            title='Live role check')
+        e.add_field(
+            name='Database',
+            value='```python\n'
+                  f'{config}\n'
+                  '```',
+            inline=False)
+        e.add_field(
+            name='Local',
+            value='```python\n'
+                  f'{self.live_role.get(str(ctx.guild.id))}\n'
+                  '```',
+            inline=False)
+        e.add_field(
+            name='Roles',
+            value=f'Live role: {repr(live_role)}\n'
+                  f'Filter role: {repr(filter_role)}\n'
+                  f'Streamcord role: {repr(bot_role)}',
+            inline=False)
+        e.add_field(
+            name='Checks',
+            value=f'Members with live role: {len(lr_count)}\n'
+                  f'Members streaming: {len(streaming_count)}\n'
+                  f'Members streaming w/ live role: {len(streaming_w_lr_count)}\n'
+                  f'Members streaming w/o live role: {len(streaming_wo_lr_count)}\n'
+                  f'Members not streaming w/ live role: {len(not_streaming_w_lr_count)}',
+            inline=False)
+        e.add_field(
+            name='Permissions',
+            value=f'Binary value: {perms.value}\n'
+                  f' - Administrator: {perms.administrator}\n'
+                  f' - Manage roles: {perms.manage_roles}',
+            inline=False)
+        e.set_footer(text='Last pull: ')
+        await ctx.send(embed=e)
+
+    @live_role.command(name='filter')
+    async def _filter(self, ctx: commands.Context):
+        await ctx.send('This command has been moved, please use the `lr set filter` command instead!')
+
+    @live_role.group(name='set')
+    @commands.bot_has_permissions(manage_roles=True)
+    async def _set(self, ctx: commands.Context):
+        if ctx.invoked_subcommand is None:
+            await ctx.send('This command has been moved, please use the `lr set role` command instead!')
+
+    @_set.command()
+    async def role(self, ctx: commands.Context, *, role: discord.Role):
+        bot_role: discord.Role = discord.utils.get(ctx.guild.me.roles, managed=True)
+        if role >= bot_role:
+            return await ctx.send('The Streamcord role must be higher than the live role.')
+        elif role.managed:
+            return await ctx.send('The live role can\'t be managed by an integration.')
+        elif role.is_default():
+            return await ctx.send('The live role can\'t be the server\'s default role. Use `!twitch lr del` to clear '
+                                  'the configuration.')
+        async with ctx.typing():
+            await self.bot.db.liveRole.update_one(
+                {'_id': str(ctx.guild.id)},
+                {'$set': {'role': str(role.id)}},
+                upsert=True)
+        await ctx.send('Server members who stream on Twitch will receive the **{role}** role.'.format(role=role.name))
+
+        # fill roles for members that are already live
+        config = await self.bot.db.liveRole.find_one({'_id': str(ctx.guild.id)}) or {}
+
+        role_members = [m for m in ctx.guild.members if config['role'] in [str(r.id) for r in m.roles]]
+        member: discord.Member
+        for member in role_members:
+            if not LiveRole._streaming_base(member):
+                # user isn't streaming, so they shouldn't have the live role
+                await member.remove_roles(role, reason='[Live role] User is not streaming')
+                self.log.info('Removed role from %s: not streaming', member.id)
+            elif filter_role := config.get('filter'):
+                if filter_role not in [str(r.id) for r in member.roles]:
+                    # user doesn't have the filter role
+                    await member.remove_roles(role, reason='[Live role] User does not have filter role')
+                    self.log.info('Removed role from %s: no filter role', member.id)
+
+        live_members = [m for m in ctx.guild.members if LiveRole._streaming_base(m)]
+        if filter_role := config.get('filter'):
+            live_members = [m for m in live_members if filter_role in [str(r.id) for r in m.roles]]
+        self.log.info('Found %s live members', len(live_members))
+
+        member: discord.Member
+        for member in live_members:
+            await member.add_roles(role, reason='[Live role] Started stream on Twitch')
+            self.log.info('Added live role to %s', member.id)
+        await ctx.send('Finished updating member roles.')
+
+    @_set.command(name='filter')
+    async def _filter(self, ctx: commands.Context, *, role: discord.Role):
+        config = await self.bot.db.liveRole.find_one({'_id': str(ctx.guild.id)}) or {}
+        if not config.get('role'):
+            return await ctx.send('You must first set a live role using `!twitch lr set role @role-name`')
+        elif role.is_default():
+            return await ctx.send('The live role can\'t be the server\'s default role. Use `!twitch lr del filter` to '
+                                  'clear the filter role.')
+
+        async with ctx.typing():
+            await self.bot.db.liveRole.update_one(
+                {'_id': str(ctx.guild.id)},
+                {'$set': {'filter': str(role.id)}})
+
+        live_role = ctx.guild.get_role(int(config['role']))
+        await ctx.send('Server members who stream on Twitch and have the **{filter}** role will receive the'
+                       ' **{role}** role.'.format(filter=role.name, role=live_role.name))
+
+    @live_role.group(aliases=['del'])
+    async def delete(self, ctx: commands.Context):
+        if ctx.invoked_subcommand is None:
+            async with ctx.typing():
+                await self.bot.db.liveRole.find_one_and_delete({'_id': str(ctx.guild.id)})
+            await ctx.send('Removed this server\'s live role configuration.')
+
+    @delete.command(name='filter')
+    async def delete_filter(self, ctx: commands.Context):
+        async with ctx.typing():
+            await self.bot.db.liveRole.update_one(
+                {'_id': str(ctx.guild.id)},
+                {'$unset': {'filter': ''}})
+        await ctx.send('Removed this server\'s filter role configuration.')
+
+
+def setup(bot: TwitchBot):
     bot.add_cog(LiveRole(bot))

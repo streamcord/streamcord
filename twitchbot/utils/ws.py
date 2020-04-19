@@ -5,7 +5,7 @@ import logging
 from flask import Flask, jsonify, abort, request
 
 
-class ThreadedWebServer():
+class ThreadedWebServer:
     def __init__(self, bot):
         self.app = Flask(__name__)
         self.bot = bot
@@ -13,7 +13,10 @@ class ThreadedWebServer():
         self.thread = None
 
         # 4000 = pro bot, so offset for 1
-        self.flask_port = 4001 + bot.cluster_index
+        if getenv('ENABLE_PRO_FEATURES') == '1':
+            self.flask_port = 4000
+        else:
+            self.flask_port = 4001 + bot.cluster_index
 
     def run(self):
         app = self.app
@@ -48,13 +51,13 @@ class ThreadedWebServer():
 
             g_channels = [{
                 "name": c.name,
-                "id": c.id,
+                "id": str(c.id),
                 "position": c.position,
                 "type": type(c).__name__,
                 } for c in guild.channels]
             g_roles = [{
                 "name": r.name,
-                "id": r.id,
+                "id": str(r.id),
                 "position": r.position,
                 "mentionable": r.mentionable,
                 "managed": r.managed
@@ -66,8 +69,6 @@ class ThreadedWebServer():
                 channels=g_channels,
                 roles=g_roles,
                 region=str(guild.region),
-                member_count=guild.member_count,
-                owner_id=guild.owner.id,
                 locale=getattr(guild, 'preferred_locale', 'en'))
 
         @app.route('/channels/<cid>')
