@@ -1,4 +1,4 @@
-# Streamcord (formerly TwitchBot)
+# Streamcord
 
 ![dbl servers](https://discordbots.org/api/widget/servers/375805687529209857.svg)
 ![dbl library](https://discordbots.org/api/widget/lib/375805687529209857.svg)
@@ -9,13 +9,15 @@ We have made Streamcord open-sourced to show how a functional example of how a D
 
 This repo does not include code for the notifications handler.
 
+> **Upkeep notice:** This repository is not consistently maintained and only receives updates at the developer's discretion.
+
 [Website](https://streamcord.io/twitch/)
 –
 [Dashboard](https://dash.streamcord.io)
 –
 [Discord Server](https://discord.gg/UNYzJqV)
 –
-[Support Center](https://help.streamcord.io)
+[Documentation](https://docs.streamcord.io)
 
 ## Invite Streamcord
 
@@ -24,11 +26,9 @@ to a server you have the `Manage Server` permission in.
 
 ## Redistribution and Unofficial Use
 
-Streamcord does not include an Open-Source license. This means that this software is copyrighted and all rights reserved. You can learn more about this here: https://choosealicense.com/no-permission/
+This public copy of Streamcord's source code is licensed under the [Boost Software License 1.0 License](https://choosealicense.com/licenses/bsl-1.0/).
 
 We are not offering any support for people who want to clone or redistribute Streamcord for their own use. You will likely not be able to run your own instance of Streamcord without extensive modifications of the source code.
-
-You must obtain written permission from the developer if you would like to self-host Streamcord.
 
 ## Requirements
 
