@@ -15,7 +15,7 @@ This repo does not include code for the notifications handler.
 –
 [Dashboard](https://dash.streamcord.io)
 –
-[Discord Server](https://discord.gg/UNYzJqV)
+[Discord Server](https://discord.gg/streamcord)
 –
 [Documentation](https://docs.streamcord.io)
 
